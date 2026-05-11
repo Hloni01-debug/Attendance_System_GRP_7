@@ -30,7 +30,7 @@ liftex/
 
 ---
 
-## ⚙️ Setup Instructions
+## Setup Instructions
 
 ### Prerequisites
 - Node.js v18+
@@ -98,6 +98,6 @@ This project was built by 8 students as part of CMPG 311 — Database Systems at
 
 ---
 
-## 📄 License
+## License
 
 MIT — for academic use only.
