@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { getRoleColor, getRoleName } from '../utils/helpers';
+import GlobalSearch from './GlobalSearch';
+import NotificationBell from './NotificationBell';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'finance', 'driver', 'warehouse'] },
@@ -114,17 +116,21 @@ export default function Layout() {
 
       {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
-        {/* Header */}
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-800">
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-lg font-semibold text-gray-800 whitespace-nowrap">
               Welcome back, {user?.first_name}
             </h1>
+            
+            {/* Global Search Bar - NEW */}
+            <div className="flex-1 max-w-md">
+              <GlobalSearch />
+            </div>
+            
+            {/* Right side icons */}
             <div className="flex items-center gap-4">
-              <button className="p-2 rounded-lg hover:bg-gray-100 relative">
-                <Bell size={20} className="text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
+              
               <div className="flex items-center gap-2">
                 <span className={`badge ${getRoleColor(user?.role)}`}>
                   {getRoleName(user?.role)}

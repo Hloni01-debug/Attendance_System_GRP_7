@@ -41,5 +41,15 @@ function App() {
     </Router>
   );
 }
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    if (e.ctrlKey && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('global-search-input')?.focus();
+    }
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, []);
 
 export default App;
