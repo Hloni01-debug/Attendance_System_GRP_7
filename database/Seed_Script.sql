@@ -24,12 +24,14 @@ INSERT INTO Warehouse (Name, Street, City, Province, Contact_Number) VALUES
 ('Durban Port', '5 Point Road', 'Durban', 'KwaZulu-Natal', '031-555-0303');
 
 -- 3. EMPLOYEE (Drivers and Admins)
-INSERT INTO Employee (Warehouse_ID, Role_ID, First_Name, Last_Name, Email, Phone, Hourly_Rate, AARTO_Violations, Prdp_Expiry) VALUES 
-(1, 1, 'Alice', 'Smith', 'alice@liftex.co.za', '0827893291', 150.00, 0, '2026-12-31'), -- ID 1
-(1, 2, 'Bob', 'Jones', 'bob@liftex.co.za', '0898738264', 200.00, 0, '2027-05-20'),     -- ID 2 (Admin)
-(2, 1, 'Charlie', 'Brown', 'charlie@liftex.co.za', '0712345678', 155.00, 12, '2023-01-01'), -- ID 3 (Expired license: attempting to add to shift should give error)
-(1, 1, 'David', 'Miller', 'david@liftex.co.za', '0831234567', 145.00, 2, '2026-11-15'),  -- ID 4
-(3, 1, 'Eve', 'Wilson', 'eve@liftex.co.za', '0722223333', 160.00, 0, '2027-01-01');     -- ID 5
+INSERT INTO Employee (Warehouse_ID, Role_ID, First_Name, Last_Name, Email, Password_Hash, Phone, Hourly_Rate, AARTO_Violations, Prdp_Expiry) VALUES 
+(1, 1, 'Alice', 'Smith', 'alice@liftex.co.za', 'alicepass', '0827893291', 150.00, 0, '2026-12-31'), -- ID 1
+(1, 2, 'Bob', 'Jones', 'bob@liftex.co.za', 'bobpass', '0898738264', 200.00, 0, '2027-05-20'),     -- ID 2 
+(2, 1, 'Charlie', 'Brown', 'charlie@liftex.co.za', 'charliePass', '0712345678', 155.00, 12, '2023-01-01'), -- ID 3 (Expired license: attempting to add to shift should give error)
+(1, 1, 'Lerato', 'Sechaba', 'Lerato@liftex.co.za','Leratopass', '0831234567', 145.00, 2, '2026-11-15'),  -- ID 4
+(3, 1, 'Eve', 'Wilson', 'driver@liftex.co.za', 'password123', '0722223333', 160.00, 0, '2027-01-01');     -- general driver login
+(3, 2, 'Kgosi', 'Morafe', 'admin@liftex.co.za', 'password123', '0722223333', 160.00, 0, '2027-01-01');     -- general admin login
+
 
 -- 4. VEHICLE (Multiple Classes)
 INSERT INTO Vehicle (Registration_Number, Registration_Expiry, COF_Expiry, Max_Payload, Make, Model, Status) VALUES

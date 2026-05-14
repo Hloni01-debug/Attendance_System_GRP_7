@@ -1,0 +1,8 @@
+# Ignore backend dependencies and my .env file
+backend/node_modules/
+backend/.env
+
+# Proactive: Ignore frontend dependencies 
+frontend/node_modules/
+
+.DS_Store

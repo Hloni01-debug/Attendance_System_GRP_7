@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS Employee (
   First_Name     VARCHAR(255) NOT NULL,
   Last_Name      VARCHAR(255) NOT NULL,
   Email          VARCHAR(255) NOT NULL UNIQUE,
+  Password_Hash  VARCHAR(255) NOT NULL,
   Phone          VARCHAR(20), 
   Hourly_Rate    DECIMAL(10,2) NOT NULL, 
   AARTO_Violations INT DEFAULT 0,
