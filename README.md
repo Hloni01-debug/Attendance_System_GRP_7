@@ -37,7 +37,7 @@ liftex/
 - MySQL 8+
 - npm or yarn
 
-### Required to run both back and front ends
+### Required to run the backend and frontend
 
 # Backend (run code below)
 cd backend
