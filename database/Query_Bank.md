@@ -4,9 +4,9 @@ List of Create/Update queries
 ### Create New Employee
 ```sql 
 INSERT INTO Employee (
-    Warehouse_ID, Role_ID, First_Name, Last_Name, Email, 
+    Warehouse_ID, Role_ID, First_Name, Last_Name, Email, Password_Hash, 
     Phone, Hourly_Rate, AARTO_Violations, Prdp_Expiry
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 ```
 ### Create New Vehicle
 ```sql
