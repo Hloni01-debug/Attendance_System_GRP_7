@@ -45,7 +45,9 @@ cd backend
 npm install express cors helmet morgan mysql2 dotenv jsonwebtoken bcryptjs
 npm install -D nodemon"
 
-# Frontend (run code below)
+---
+
+### Frontend (run code below)
 ```bash
 cd ../frontend
 npm install react@18.2.0 react-dom@18.2.0 react-router-dom@6.20.0 axios@1.6.2 date-fns@2.30.0 recharts@2.10.0 react-hot-toast@2.4.1 react-hook-form@7.48.0 zustand@4.4.7 @tanstack/react-query@5.12.0 lucide-react@0.294.0
