@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';  // ← ADDED useEffect here
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import Login from './pages/Login';
@@ -15,7 +15,12 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
+
+  useEffect(() => {
+    // Your useEffect logic here
+    console.log('App initialized');
+  }, []);
 
   return (
     <Router>
@@ -41,15 +46,5 @@ function App() {
     </Router>
   );
 }
-useEffect(() => {
-  const handleKeyDown = (e) => {
-    if (e.ctrlKey && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('global-search-input')?.focus();
-    }
-  };
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
-}, []);
 
 export default App;

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, Download, Calendar, Filter, BarChart3, PieChart, TrendingUp } from 'lucide-react';
+import { FileText, Download, Filter, BarChart3, PieChart, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell } from 'recharts';
-import ComparisonChart from '../components/ComparisonChart';
-import DateRangePicker from '../components/DateRangePicker';
 
 export default function Reports() {
   const [reportType, setReportType] = useState('delivery');
@@ -42,13 +40,6 @@ export default function Reports() {
     { name: 'Failed', value: 450, color: '#ef4444' },
   ];
 
-  // Handle date range change
-  const handleDateRangeChange = (start, end) => {
-    setDateRange({ start, end });
-    // Here you would fetch new data based on the date range
-    console.log('Date range changed:', start, 'to', end);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -59,7 +50,7 @@ export default function Reports() {
         </button>
       </div>
 
-      {/* Report Controls with DateRangePicker */}
+      {/* Report Controls */}
       <div className="card">
         <div className="card-body">
           <div className="flex flex-wrap gap-4 items-end">
@@ -75,41 +66,34 @@ export default function Reports() {
                 <option value="fuel">Fuel Efficiency</option>
                 <option value="parcel">Parcel Analytics</option>
                 <option value="financial">Financial Summary</option>
-                <option value="comparison">Performance Comparison</option>
               </select>
             </div>
-            
-            {/* Date Range Picker - REPLACES the old start/end date inputs */}
             <div>
-              <label className="label">Date Range</label>
-              <DateRangePicker 
-                onRangeChange={handleDateRangeChange}
-                initialStartDate={dateRange.start}
-                initialEndDate={dateRange.end}
+              <label className="label">Start Date</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                className="input"
               />
             </div>
-            
+            <div>
+              <label className="label">End Date</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                className="input"
+              />
+            </div>
             <div>
               <label className="label">&nbsp;</label>
-              <button 
-                onClick={() => {
-                  // Re-fetch data with current date range
-                  console.log('Apply filters clicked', dateRange);
-                }}
-                className="btn-secondary flex items-center gap-2"
-              >
+              <button className="btn-secondary flex items-center gap-2">
                 <Filter size={18} />
                 Apply Filters
               </button>
             </div>
           </div>
-          
-          {/* Show active date range filter */}
-          {dateRange.start && dateRange.end && (
-            <div className="mt-3 text-xs text-gray-500">
-              Filtering data from {dateRange.start} to {dateRange.end}
-            </div>
-          )}
         </div>
       </div>
 
@@ -331,7 +315,6 @@ export default function Reports() {
           </div>
         </div>
       )}
-      {reportType === 'comparison' && <ComparisonChart />}
     </div>
   );
 }
