@@ -40,11 +40,13 @@ liftex/
 ### Required to run the backend and frontend
 
 # Backend (run code below)
+```bash
 cd backend
 npm install express cors helmet morgan mysql2 dotenv jsonwebtoken bcryptjs
 npm install -D nodemon"
 
 # Frontend (run code below)
+```bash
 cd ../frontend
 npm install react@18.2.0 react-dom@18.2.0 react-router-dom@6.20.0 axios@1.6.2 date-fns@2.30.0 recharts@2.10.0 react-hot-toast@2.4.1 react-hook-form@7.48.0 zustand@4.4.7 @tanstack/react-query@5.12.0 lucide-react@0.294.0
 npm install -D @vitejs/plugin-react@4.2.0 vite@5.0.0 tailwindcss@3.3.6 autoprefixer@10.4.16 postcss@8.4.32 eslint@8.53.0 eslint-plugin-react@7.33.2 eslint-plugin-react-hooks@4.6.0 eslint-plugin-react-refresh@0.4.4"
