@@ -1,31 +1,33 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const app = express();
+require('dotenv').config();
 
-// 1. MIDDLEWARE
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Auth Bypass (Keeps your triggers happy)
-app.use((req, res, next) => {
-    req.user = { id: 1, warehouse_id: 1, role: 'admin' }; 
-    next();
-});
-
-// 2. ROUTE IMPORTS (Crucial: Define the variables here!)
+// Import Routes
+const authRoutes = require('./src/Routes/authRoutes');
+const vehicleRoutes = require('./src/Routes/vehicleRoutes');
 const shiftRoutes = require('./src/Routes/shiftroutes');
 const payrollRoutes = require('./src/Routes/payrollroutes');
-const auditRoutes = require('./src/Routes/auditroutes'); // <--- YOU WERE MISSING THIS LINE
+const auditRoutes = require('./src/Routes/auditroutes');     
 
-// 3. API ENDPOINTS
-app.use('/api/delivery-shifts', shiftRoutes);
+// Use Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/attendance', shiftRoutes);
 app.use('/api/payroll', payrollRoutes);
-app.use('/api/audit', auditRoutes); // <--- Now Node knows what 'auditRoutes' is!
+app.use('/api/audit', auditRoutes);
 
-// 4. SERVER START
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
+
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(err.statusCode || 500).json({
+        success: false,
+        message: err.message || "An error occurred"
+    });
 });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

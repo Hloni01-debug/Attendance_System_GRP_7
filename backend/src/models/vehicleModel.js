@@ -1,70 +1,35 @@
-import pool from "../config/db.js"
+const pool = require('../config/db');
 
+const vehicleModel = {
+    getAllVehicles: async () => {
+        const [rows] = await pool.query(`SELECT * FROM Vehicle`);
+        return rows;
+    },
 
-export const getAllVehicles = async () => {
-    const result = await pool.query(`
-        SELECT * FROM Vehicle
-    `)
-    return result.rows
-}
+    getVehicleById: async (id) => {
+        const [rows] = await pool.query(`SELECT * FROM Vehicle WHERE Vehicle_ID = ?`, [id]);
+        return rows[0];
+    },
 
+    createVehicle: async (data) => {
+        const { registrationNumber, registrationExpiry, cofExpiry, maxPayload, make, model, status } = data;
+        const [result] = await pool.query(
+            `INSERT INTO Vehicle (Registration_Number, Registration_Expiry, COF_Expiry, Max_Payload, Make, Model, Status)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [registrationNumber, registrationExpiry, cofExpiry, maxPayload, make, model, status || "Available"]
+        );
+        return { id: result.insertId, ...data };
+    },
 
-export const getVehicleById = async (id) => {
-    const result = await pool.query(`
-        SELECT * FROM Vehicle
-        WHERE Vehicle_ID = $1
-    `, [id])
+    updateVehicleStatus: async (id, status) => {
+        await pool.query(`UPDATE Vehicle SET Status = ? WHERE Vehicle_ID = ?`, [status, id]);
+        return { id, status };
+    },
 
-    return result.rows[0]
-}
+    deleteVehicleById: async (id) => {
+        const [result] = await pool.query(`DELETE FROM Vehicle WHERE Vehicle_ID = ?`, [id]);
+        return result.affectedRows > 0;
+    }
+};
 
-
-export const createVehicle = async (
-    registrationNumber,
-    registrationExpiry,
-    cofExpiry,
-    maxPayload,
-    make,
-    model,
-    status = "Available"
-) => {
-    const result = await pool.query(`
-        INSERT INTO Vehicle
-        (Registration_Number, Registration_Expiry, COF_Expiry, Max_Payload, Make, Model, Status)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
-        RETURNING *
-    `, [
-        registrationNumber,
-        registrationExpiry,
-        cofExpiry,
-        maxPayload,
-        make,
-        model,
-        status
-    ])
-
-    return result.rows[0]
-}
-
-
-export const updateVehicleStatus = async (id, status) => {
-    const result = await pool.query(`
-        UPDATE Vehicle
-        SET Status = $1
-        WHERE Vehicle_ID = $2
-        RETURNING *
-    `, [status, id])
-
-    return result.rows[0]
-}
-
-
-export const deleteVehicleById = async (id) => {
-    const result = await pool.query(`
-        DELETE FROM Vehicle
-        WHERE Vehicle_ID = $1
-        RETURNING *
-    `, [id])
-
-    return result.rows[0]
-}
+module.exports = vehicleModel;

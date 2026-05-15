@@ -1,6 +1,7 @@
 # Ignore backend dependencies and my .env file
 backend/node_modules/
 backend/.env
+node_modules/
 
 # Proactive: Ignore frontend dependencies 
 frontend/node_modules/

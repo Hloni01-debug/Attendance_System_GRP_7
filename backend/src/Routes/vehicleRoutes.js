@@ -1,28 +1,12 @@
-import express from "express"
-import {
-    fetchVehicles,
-    fetchVehicleById,
-    addVehicle,
-    changeVehicleStatus,
-    removeVehicle
-} from "../controllers/vehicleController.js"
+const express = require("express");
+const router = express.Router();
+const vehicleController = require("../controller/vehicleController");
+const { authMiddleware } = require("../middleware/authMiddleware");
+const { authorizeRoles } = require("../middleware/roleMiddleware");
+router.get("/", authMiddleware, authorizeRoles(2), vehicleController.fetchVehicles);
+router.get("/:id", authMiddleware, authorizeRoles(2), vehicleController.fetchVehicleById);
+router.post("/", authMiddleware, authorizeRoles(2), vehicleController.addVehicle);
+router.put("/status/:id", authMiddleware, authorizeRoles(2), vehicleController.changeVehicleStatus);
+router.delete("/:id", authMiddleware, authorizeRoles(2), vehicleController.removeVehicle);
 
-import { authMiddleware } from "../middlewares/authMiddleware.js"
-import { authorizeRoles } from "../middlewares/roleMiddleware.js"
-
-const router = express.Router()
-
-
-router.get("/", authMiddleware, authorizeRoles(("Fleet Admin")), fetchVehicles)
-
-router.get("/:id", authMiddleware, authorizeRoles("Fleet Admin"), fetchVehicleById)
-
-
-router.post("/", authMiddleware, authorizeRoles("Fleet Admin"), addVehicle)
-
-router.put("/status/:id", authMiddleware, authorizeRoles("Fleet Admin"), changeVehicleStatus)
-
-
-router.delete("/:id", authMiddleware, authorizeRoles("Fleet Admin"), removeVehicle)
-
-export default router
+module.exports = router;

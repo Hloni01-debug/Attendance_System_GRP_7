@@ -32,7 +32,7 @@ const payrollController = {
             
             const [rows] = await db.query(sql);
             
-            // Force conversion to Numbers before doing math
+            
             const formattedRows = rows.map(r => {
                 const base = Number(r.base_pay);
                 const bonus = Number(r.bonus);
@@ -136,7 +136,7 @@ const payrollController = {
                 return res.status(404).json({ message: "No payroll records found for this employee in the specified period." });
             }
 
-            // 5. Send the result back to the frontend
+            
             res.json(results[0]);
 
         } catch (error) {

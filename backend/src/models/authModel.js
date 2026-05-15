@@ -1,39 +1,21 @@
-import pool from "../config/db.js";
+const pool = require('../config/db');
 
-export const getEmployeeByEmail = async (email) => {
-    const result = await pool.query(
-        `SELECT * FROM Employee WHERE Email = $1`,
+const getEmployeeByEmail = async (email) => {
+    const [rows] = await pool.query(
+        `SELECT * FROM Employee WHERE Email = ?`,
         [email]
     );
-
-    return result.rows[0];
+    return rows[0];
 };
-export const createEmployee = async (
-    warehouseId,
-    roleId,
-    firstName,
-    lastName,
-    email,
-    phone,
-    hourlyRate,
-    prdpExpiry
-) => {
-    const result = await pool.query(
+
+const createEmployee = async (warehouseId, roleId, firstName, lastName, email, phone, hourlyRate, Password_Hash, prdpExpiry) => {
+    const [result] = await pool.query(
         `INSERT INTO Employee 
-        (Warehouse_ID, Role_ID, First_Name, Last_Name, Email, Phone, Hourly_Rate, Prdp_Expiry)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING *`,
-        [
-            warehouseId,
-            roleId,
-            firstName,
-            lastName,
-            email,
-            phone,
-            hourlyRate,
-            prdpExpiry
-        ]
+        (Warehouse_ID, Role_ID, First_Name, Last_Name, Email, Phone, Hourly_Rate, Password_Hash, Prdp_Expiry)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [warehouseId, roleId, firstName, lastName, email, phone, hourlyRate, Password_Hash, prdpExpiry]
     );
-
-    return result.rows[0];
+    return result; 
 };
+
+module.exports = { getEmployeeByEmail, createEmployee };

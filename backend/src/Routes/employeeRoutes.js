@@ -7,8 +7,8 @@ import {
     removeEmployee
 } from "../controllers/employeeController.js";
 
-import { authMiddleware } from "../middlewares/authMiddleware.js";
-import { authorizeRoles } from "../middlewares/roleMiddleware.js";
+import { authMiddleware } from "../middleware/authMiddleware.js";
+import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
