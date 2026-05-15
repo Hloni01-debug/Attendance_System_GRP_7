@@ -193,9 +193,31 @@ SELECT
     END AS Vehicle_Readiness
 FROM Vehicle;
 
--- 13 Triggers
+-- 14. VIEW: Fuel Theft Analysis
+CREATE OR REPLACE VIEW v_Fuel_Theft_Analysis AS
+SELECT 
+    s.Shift_ID,
+    s.Employee_ID,          
+    e.First_Name AS Driver_Name,
+    s.Shift_Date,
+    s.Shift_Status,
+    s.Odometer_End - s.Odometer_Start AS Distance_Travelled,
+    s.Tank_Start + IFNULL(ft.Total_Refuel, 0) - s.Tank_End AS Actual_Consumption,
+    s.Fuel_Consumed_CAN AS Expected_Consumption,
+    -- The Logic Specialist's math:
+    (s.Tank_Start + IFNULL(ft.Total_Refuel, 0) - s.Tank_End) - s.Fuel_Consumed_CAN AS missing_fuel,
+    s.Missing_Fuel_Status
+FROM Delivery_Shift s
+JOIN Employee e ON s.Employee_ID = e.Employee_ID
+LEFT JOIN (
+    SELECT Shift_ID, SUM(Fuel_Litres) AS Total_Refuel
+    FROM Fuel_Transaction
+    GROUP BY Shift_ID
+) ft ON s.Shift_ID = ft.Shift_ID;
+
+-- 15 Triggers
  
--- 13.1 Payload Enforcement Trigger (prevents parcel INSERT into SHIFT if it exceeds the vehicle's maximum payload)
+-- 15.1 Payload Enforcement Trigger (prevents parcel INSERT into SHIFT if it exceeds the vehicle's maximum payload)
 
 DELIMITER //
 
@@ -221,7 +243,7 @@ BEGIN
 END; //
 DELIMITER ;
 
--- 13.2 Payload Enforcement Trigger (prevents parcel UPDATE into shift if it exceeds the vehicle's maximum payload)
+-- 15.2 Payload Enforcement Trigger (prevents parcel UPDATE into shift if it exceeds the vehicle's maximum payload)
 
 DELIMITER //
 
@@ -248,7 +270,7 @@ END; //
 
 DELIMITER ;
 
--- 13.3 Driver and Legal compliance trigger (only allows drivers and vehicles with valid legal compliance to start a shift)
+-- 15.3 Driver and Legal compliance trigger (only allows drivers and vehicles with valid legal compliance to start a shift)
 
 DELIMITER //
 
@@ -271,43 +293,37 @@ END; //
 
 DELIMITER ;
 
--- 13.4 Automated Shift and vehicle Categorisation
+-- 15.4 Automated Shift and vehicle Categorisation
 
 DELIMITER //
 
--- 13.4.1 DATA VALIDATION (Runs BEFORE the save)
+-- 15.4.1 automatic status management
+DELIMITER //
+
 CREATE TRIGGER trg_manage_shift_status
 BEFORE UPDATE ON Delivery_Shift
 FOR EACH ROW
 BEGIN
-    -- 1. DETERMINE STATUS BASED ON TIMESTAMPS FIRST
-    IF NEW.Clock_In IS NOT NULL AND NEW.Clock_Out IS NOT NULL THEN
-        IF TIMESTAMPDIFF(SECOND, NEW.Clock_In, NEW.Clock_Out) >= 0 THEN
+    -- If the driver enters a Clock_Out time, automatically set status to 'Completed'
+    IF NEW.Clock_Out IS NOT NULL AND OLD.Clock_Out IS NULL THEN
+        IF NEW.Clock_In IS NOT NULL AND TIMESTAMPDIFF(SECOND, NEW.Clock_In, NEW.Clock_Out) >= 0 THEN
             SET NEW.Shift_Status = 'Completed';
+        ELSEIF NEW.Clock_In IS NULL THEN
+             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: Cannot clock out without a clock-in time.';
         ELSE
-            SIGNAL SQLSTATE '45000' 
-            SET MESSAGE_TEXT = 'Logic Violation: Clock-out cannot be earlier than Clock-in.';
-        END IF;
-
-    ELSEIF NEW.Clock_In IS NOT NULL AND NEW.Clock_Out IS NULL THEN
-        SET NEW.Shift_Status = 'Active';
-
-    ELSEIF NEW.Clock_In IS NULL AND NEW.Clock_Out IS NULL THEN
-        IF NEW.Shift_Status != 'Cancelled' THEN
-            SET NEW.Shift_Status = 'Planned';
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Logic Violation: Clock-out cannot be earlier than Clock-in.';
         END IF;
     END IF;
 
-    -- 2. Makes it so that we don't have 'active shifts' or 'planned' shifts where the shift_date < currentDate. 
-    -- If the shift isn't 'Completed' and the date is old, force it to 'Cancelled'.
-    -- cleans up 'Planned' and 'Active' shifts that were never finished.
+    -- Cleanup for abandoned shifts (Your existing logic)
     IF NEW.Shift_Status != 'Completed' AND NEW.Shift_Date < CURRENT_DATE THEN
         SET NEW.Shift_Status = 'Cancelled';
     END IF;
 END; //
+DELIMITER ;
 
 
--- 13.4.2 Syncing vehicle to deliver shift update
+-- 15.4.2 Syncing vehicle to deliver shift update
 CREATE TRIGGER trg_sync_vehicle_status_after_shift
 AFTER UPDATE ON Delivery_Shift
 FOR EACH ROW
@@ -342,11 +358,11 @@ END; //
 
 DELIMITER ;
 
---13.5 Audit log triggers for important information
+--15.5 Audit log triggers for important information
 
 DELIMITER //
 
--- 13.5.1  EMPLOYEE TABLE AUDIT
+-- 15.5.1  EMPLOYEE TABLE AUDIT
 CREATE TRIGGER trg_audit_employee_changes
 AFTER UPDATE ON Employee
 FOR EACH ROW
@@ -380,7 +396,7 @@ BEGIN
 END; //
 
 
--- 13.5.2 VEHICLE TABLE AUDIT
+-- 15.5.2 VEHICLE TABLE AUDIT
 CREATE TRIGGER trg_audit_vehicle_changes
 AFTER UPDATE ON Vehicle
 FOR EACH ROW
@@ -394,39 +410,34 @@ BEGIN
 END; //
 
 
--- 13.5.3 DELIVERY SHIFT OVERRIDE AUDIT
+-- 15.5.3 DELIVERY SHIFT OVERRIDE AUDIT
 CREATE TRIGGER trg_audit_shift_overrides
 AFTER UPDATE ON Delivery_Shift
 FOR EACH ROW
 BEGIN
     IF OLD.Shift_Status != NEW.Shift_Status THEN
         INSERT INTO Audit_Log (Employee_ID, Action_Type, Table_Affected, Old_Value, New_Value)
-        VALUES (@current_user_id, 'SHIFT_STATUS_OVERRIDE', 'Delivery_Shift', 
-                CONCAT('ShiftID: ', NEW.Shift_ID, ' | Old: ', OLD.Shift_Status), 
-                CAST(NEW.Shift_Status AS CHAR));
+        VALUES (
+            @current_user_id, 
+            -- The Logic Specialist's Labeler:
+            CASE 
+                WHEN NEW.Shift_Status = 'Completed' THEN 'DRIVER_CLOCK_OUT'
+                WHEN NEW.Shift_Status = 'Active'    THEN 'DRIVER_CLOCK_IN'
+                ELSE 'SHIFT_STATUS_OVERRIDE' -- Catch-all for Admin/Manual changes
+            END,
+            'Delivery_Shift', 
+            CONCAT('ShiftID: ', NEW.Shift_ID, ' | Prev: ', OLD.Shift_Status), 
+            CAST(NEW.Shift_Status AS CHAR)
+        );
     END IF;
 END; //
 
-
--- 13.5.4. PARCEL STATUS AUDIT
-CREATE TRIGGER trg_audit_parcel_status
-AFTER UPDATE ON Parcel
-FOR EACH ROW
-BEGIN
-    IF OLD.Status_ID != NEW.Status_ID THEN
-        INSERT INTO Audit_Log (Employee_ID, Action_Type, Table_Affected, Old_Value, New_Value)
-        VALUES (@current_user_id, 'PARCEL_STATUS_UPDATE', 'Parcel', 
-                CONCAT('ParcelID: ', NEW.Parcel_ID, ' | OldStatusID: ', OLD.Status_ID), 
-                CAST(NEW.Status_ID AS CHAR));
-    END IF;
-END; //
-
--- 13.5.5. PAYROLL RECORD AUDIT
+-- 15.5.5. PAYROLL RECORD AUDIT
 CREATE TRIGGER trg_audit_payroll_rates
 AFTER UPDATE ON Payroll_Record
 FOR EACH ROW
 BEGIN
-    -- Log changes to the applied hourly
+    -- Log changes to the applied hourly rate
     IF OLD.Applied_Hourly_Rate != NEW.Applied_Hourly_Rate THEN
         INSERT INTO Audit_Log (
             Employee_ID,     -- The Admin making the change

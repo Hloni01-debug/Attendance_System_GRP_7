@@ -1,30 +1,31 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet'); 
-const morgan = require('morgan');
-const db = require('./db');
-require('dotenv').config();
-
 const app = express();
 
-app.use(helmet());           
-app.use(morgan('dev'));      
+// 1. MIDDLEWARE
 app.use(cors());
 app.use(express.json());
 
-// basic test api
-app.get('/api/drivers/compliance', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM v_Driver_Compliance');
-    res.json(rows); 
-  } catch (error) {
-    // error if DB port is closed or if wrong password used
-    console.error("Database Error:", error.message);
-    res.status(500).json({ error: "Could not connect to database" });
-  }
+// Auth Bypass (Keeps your triggers happy)
+app.use((req, res, next) => {
+    req.user = { id: 1, warehouse_id: 1, role: 'admin' }; 
+    next();
 });
 
+// 2. ROUTE IMPORTS (Crucial: Define the variables here!)
+const shiftRoutes = require('./src/Routes/shiftroutes');
+const payrollRoutes = require('./src/Routes/payrollroutes');
+const auditRoutes = require('./src/Routes/auditroutes'); // <--- YOU WERE MISSING THIS LINE
+
+// 3. API ENDPOINTS
+app.use('/api/delivery-shifts', shiftRoutes);
+app.use('/api/attendance', shiftRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/audit', auditRoutes); // <--- Now Node knows what 'auditRoutes' is!
+
+// 4. SERVER START
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Liftex API running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`)
 });

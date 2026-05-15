@@ -157,89 +157,65 @@ WHERE Employee_ID = ?;
 ### Employee Monthly Audit (generates report data for each of a specific employee's shifts in a specific month and year)
 ```sql
 SELECT 
-    s.Shift_ID,
-    s.Shift_Date,
-    CONCAT(e.First_Name, ' ', e.Last_Name) AS Driver,
-    v.Registration_Number,
+    fta.Shift_ID,
+    fta.Shift_Date,
+    fta.Driver_Name AS Driver,
+    fta.Registration_Number,
 
-    -- 1. Odometer distance
+    
     (s.Odometer_End - s.Odometer_Start) AS `Distance_Travelled(km)`,
     
-    -- 2. Fuel Cost
-    (s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) AS `Missing_Fuel(L)`,
-    ((s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) 
-     * IFNULL(fuel_sub.Avg_Unit_Price, 0)) AS `Fuel_Loss_Cost(R)`,
     
-    -- 3. Parcel Productivity (New: Count)
-    IFNULL(parcel_sub.Parcel_Count, 0) AS `Parcels_Delivered`,
-
-    -- 4. Payload/Weight monitoring
-    v.Max_Payload,
-    IFNULL(parcel_sub.Total_Weight, 0) AS `Current_Load(kg)`,
-    (v.Max_Payload - IFNULL(parcel_sub.Total_Weight, 0)) AS `Remaining_Capacity(kg)`,
+    fta.missing_fuel AS `Missing_Fuel(L)`,
+    (fta.missing_fuel * IFNULL(fuel_sub.Avg_Unit_Price, 0)) AS `Fuel_Loss_Cost(R)`,
     
-    -- 5. Statuses
-    s.Missing_Fuel_Status,
-    s.Shift_Status
+    
+    fta.Missing_Fuel_Status,
+    fta.Shift_Status
 
-FROM Delivery_Shift s
-JOIN Employee e ON s.Employee_ID = e.Employee_ID
-JOIN Vehicle v ON s.Vehicle_ID = v.Vehicle_ID
+FROM v_Fuel_Theft_Analysis fta
+JOIN Delivery_Shift s ON fta.Shift_ID = s.Shift_ID
 LEFT JOIN (
-    SELECT 
-        Shift_ID, 
-        SUM(Fuel_Litres) AS Total_Refills,
-        AVG(Fuel_Cost / Fuel_Litres) AS Avg_Unit_Price 
-    FROM Fuel_Transaction 
-    GROUP BY Shift_ID
-) fuel_sub ON s.Shift_ID = fuel_sub.Shift_ID 
-LEFT JOIN (
-    SELECT 
-        Shift_ID, 
-        SUM(Parcel_Weight) AS Total_Weight,
-        COUNT(Parcel_ID) AS Parcel_Count 
-    FROM Parcel 
-    GROUP BY Shift_ID
-) parcel_sub ON s.Shift_ID = parcel_sub.Shift_ID
-WHERE MONTH(s.Shift_Date) = ? 
-  AND YEAR(s.Shift_Date) = ?
-  AND s.Employee_ID = ?
-ORDER BY s.Shift_Date DESC; 
-```
+    
+    SELECT Shift_ID, AVG(Fuel_Cost / Fuel_Litres) AS Avg_Unit_Price 
+    FROM Fuel_Transaction GROUP BY Shift_ID
+) fuel_sub ON fta.Shift_ID = fuel_sub.Shift_ID 
+WHERE MONTH(fta.Shift_Date) = ? 
+  AND YEAR(fta.Shift_Date) = ?
+  AND fta.Driver_Name LIKE ?;
+  ```
 
 ### Single Shift Summary (Generates report data for a specific shift) 
 ```sql
 SELECT 
-    s.Shift_ID,
-    s.Shift_Date,
-    CONCAT(e.First_Name, ' ', e.Last_Name) AS Driver,
-    v.Registration_Number,
-    -- 1. Operational Results
+    fta.Shift_ID,
+    fta.Shift_Date,
+    fta.Driver_Name AS Driver,
+    fta.Registration_Number,
+    --  shift data
     (s.Odometer_End - s.Odometer_Start) AS `Total_Distance(km)`,
-    (s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) AS `Missing_Fuel(L)`,
-    ((s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) 
-     * IFNULL(fuel_sub.Avg_Unit_Price, 0)) AS `Fuel_Loss_Cost(R)`,
+    fta.missing_fuel AS `Missing_Fuel(L)`, 
+    (fta.missing_fuel * IFNULL(fuel_sub.Avg_Unit_Price, 0)) AS `Fuel_Loss_Cost(R)`,
     
-    -- 2. Parcel Info (Count + Weight)
+    --  Parcel Info 
     IFNULL(parcel_sub.Parcel_Count, 0) AS `Total_Parcels`,
     v.Max_Payload,
     IFNULL(parcel_sub.Total_Weight, 0) AS `Actual_Load(kg)`,
     (v.Max_Payload - IFNULL(parcel_sub.Total_Weight, 0)) AS `Load_Margin(kg)`,
     
-    -- 3. Audit Statuses
-    s.Missing_Fuel_Status,
-    s.Shift_Status
-FROM Delivery_Shift s
-JOIN Employee e ON s.Employee_ID = e.Employee_ID
+    --  missing fuel status info
+    fta.Missing_Fuel_Status,
+    fta.Shift_Status
+FROM v_Fuel_Theft_Analysis fta
+JOIN Delivery_Shift s ON fta.Shift_ID = s.Shift_ID
 JOIN Vehicle v ON s.Vehicle_ID = v.Vehicle_ID
 LEFT JOIN (
     SELECT 
         Shift_ID, 
-        SUM(Fuel_Litres) AS Total_Refills, 
         AVG(Fuel_Cost / Fuel_Litres) AS Avg_Unit_Price
     FROM Fuel_Transaction 
     GROUP BY Shift_ID
-) fuel_sub ON s.Shift_ID = fuel_sub.Shift_ID 
+) fuel_sub ON fta.Shift_ID = fuel_sub.Shift_ID 
 LEFT JOIN (
     SELECT 
         Shift_ID, 
@@ -247,8 +223,8 @@ LEFT JOIN (
         COUNT(Parcel_ID) AS Parcel_Count
     FROM Parcel 
     GROUP BY Shift_ID
-) parcel_sub ON s.Shift_ID = parcel_sub.Shift_ID
-WHERE s.Shift_ID = ?; 
+) parcel_sub ON fta.Shift_ID = parcel_sub.Shift_ID
+WHERE fta.Shift_ID = ?; 
 ```
 
 ### Monthly Attendance Report (Generates list of employee attendance based on Hours worked, warehouse checked in at etc)
@@ -280,82 +256,39 @@ ORDER BY s.Shift_Date DESC;
 ```
 
 ### Monthly employee overall summary (generates summarised overview of Employee's monthly profile: Parcels delivered, hours work, total distance etc)
-```sql
-### Monthly employee overall summary 
+```sql 
 SELECT 
-    s.Employee_ID,
-    CONCAT(e.First_Name, ' ', e.Last_Name) AS Driver,
-    
-    -- 1. Counting variouous shift statuses
-    COUNT(CASE WHEN s.Shift_Status = 'Completed' THEN 1 END) AS Shifts_Completed,
-    COUNT(CASE WHEN s.Shift_Status = 'Cancelled' THEN 1 END) AS Shifts_Cancelled,
-    COUNT(CASE WHEN s.Shift_Status = 'Active' THEN 1 END) AS Shifts_Still_Active,
-    COUNT(CASE WHEN s.Shift_Status = 'Planned' THEN 1 END) AS Shifts_Still_Planned,
+    fta.Driver_Name AS Driver,
+    COUNT(CASE WHEN fta.Shift_Status = 'Completed' THEN 1 END) AS Shifts_Completed,
 
-    -- 2. total parcels delivered
-    SUM(CASE WHEN s.Shift_Status = 'Completed' THEN IFNULL(parcel_sub.Parcel_Count, 0) ELSE 0 END) AS Total_Parcels_Delivered,
+    -- 1. Net Fuel Usage (Start + Refills - End)
+    SUM(CASE WHEN fta.Shift_Status = 'Completed' 
+        THEN (fta.Tank_Start + fta.Total_Refills - fta.Tank_End) ELSE 0 END) AS `Net_Fuel_Usage(L)`,
 
-    -- 3. Billable Labor (in HH:MM:SS format)
-    SEC_TO_TIME(SUM(
-        CASE WHEN s.Shift_Status = 'Completed' 
-             AND s.Clock_In IS NOT NULL 
-             AND s.Clock_Out IS NOT NULL 
-        THEN TIMESTAMPDIFF(SECOND, s.Clock_In, s.Clock_Out) 
-        ELSE 0 END
-    )) AS Total_Billable_Hours,
+    -- 2. Total Missing Fuel 
+    SUM(CASE WHEN fta.Shift_Status = 'Completed' THEN fta.missing_fuel ELSE 0 END) AS `Total_Missing_Fuel(L)`,
 
-    -- 4. Billable Distance
-    SUM(
-        CASE WHEN s.Shift_Status = 'Completed' 
-        THEN (s.Odometer_End - s.Odometer_Start) 
-        ELSE 0 END
-    ) AS `Total_Billable_Distance(KM)`,
+    -- 3. Total Missing Fuel Theft (Only for 'Stolen' incidents)
+    SUM(CASE WHEN fta.Shift_Status = 'Completed' AND fta.Missing_Fuel_Status = 'Stolen'
+        THEN fta.missing_fuel ELSE 0 END) AS `Total_Missing_Fuel_Theft(L)`,
 
-    -- 5. Net Fuel Usage (actual Physical tank depletion)
-    SUM(CASE WHEN s.Shift_Status = 'Completed' 
-        THEN (s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Tank_End) 
-        ELSE 0 END) AS `Net_Fuel_Usage(L)`,
+    -- 4. fuel deductions
+    SUM(CASE WHEN fta.Shift_Status = 'Completed' AND fta.Missing_Fuel_Status = 'Stolen'
+        THEN (fta.missing_fuel * IFNULL(fuel_sub.Avg_Fuel_Cost, 0)) ELSE 0 END) AS `Total_Theft_Deduction(R)`
 
-    -- 6. Total Missing Fuel 
-    SUM(CASE WHEN s.Shift_Status = 'Completed' 
-        THEN (s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) 
-        ELSE 0 END) AS `Total_Missing_Fuel(L)`,
-
-    -- 7. Total Missing Fuel Theft (only for 'Stolen' incidents)
-    SUM(CASE WHEN s.Shift_Status = 'Completed' AND s.Missing_Fuel_Status = 'Stolen'
-        THEN (s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) 
-        ELSE 0 END) AS `Total_Missing_Fuel_Theft(L)`,
-
-    -- 8. Final Fuel Deductions (Financial value of stolen liters)
-    SUM(
-        CASE WHEN s.Shift_Status = 'Completed' AND s.Missing_Fuel_Status = 'Stolen'
-        THEN ((s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) * IFNULL(fuel_sub.Avg_Fuel_Cost, 0))
-        ELSE 0 END
-    ) AS `Total_Theft_Deduction(R)`
-
-FROM Delivery_Shift s
-JOIN Employee e ON s.Employee_ID = e.Employee_ID
-
+FROM v_Fuel_Theft_Analysis fta
 LEFT JOIN (
-    SELECT Shift_ID, SUM(Fuel_Litres) AS Total_Refills, AVG(Fuel_Cost / Fuel_Litres) AS Avg_Fuel_Cost
+    SELECT Shift_ID, AVG(Fuel_Cost / Fuel_Litres) AS Avg_Fuel_Cost
     FROM Fuel_Transaction GROUP BY Shift_ID
-) fuel_sub ON s.Shift_ID = fuel_sub.Shift_ID
-
-LEFT JOIN (
-    SELECT Shift_ID, COUNT(Parcel_ID) AS Parcel_Count 
-    FROM Parcel 
-    WHERE Status_ID = 3 
-    GROUP BY Shift_ID
-) parcel_sub ON s.Shift_ID = parcel_sub.Shift_ID
-
-WHERE MONTH(s.Shift_Date) = ? AND YEAR(s.Shift_Date) = ? AND s.Employee_ID = ?
-GROUP BY s.Employee_ID;
+) fuel_sub ON fta.Shift_ID = fuel_sub.Shift_ID
+WHERE MONTH(fta.Shift_Date) = ? AND YEAR(fta.Shift_Date) = ?
+GROUP BY fta.Driver_Name;
 ```
 
 ### Monthly payroll for one employee
 ```sql
 WITH Fleet_Baseline AS (
-    -- 1. fleet average in L/100km for this specific month/year
+    -- 1. Calculate the average fuel efficiency (L/100km) for the whole fleet this month
     SELECT 
         AVG(Fuel_Consumed_CAN / ((Odometer_End - Odometer_Start) / 100)) AS Global_Avg
     FROM Delivery_Shift
@@ -365,62 +298,63 @@ WITH Fleet_Baseline AS (
 )
 SELECT 
     e.Employee_ID,
-    CONCAT(e.First_Name, ' ', e.Last_Name) AS Driver_Name,
+    fta.Driver_Name,
     
-    -- 2. Gross Pay
+    -- 2. Gross pay
     (SUM(TIMESTAMPDIFF(SECOND, s.Clock_In, s.Clock_Out)) / 3600) * e.Hourly_Rate AS Gross_Base_Pay,
     
     -- 3. Parcel Bonus (R10.00 per parcel)
     IFNULL(parcel_sub.Total_Parcels, 0) * 10.00 AS Parcel_Bonus,
 
-    -- 4. Driver individual fuel efficiency for that month (L/100KM)
-    (SUM(s.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) AS Driver_Avg_Efficiency,
+    -- 4. Driver Efficiency (L/100KM) 
+    (SUM(fta.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) AS Driver_Avg_Efficiency,
 
-    -- 5. Fuel Efficiency Bonus evaluated to tiered system based on comparison to to Fleet_Baseline)
+    -- 5. Efficiency Bonus (Tiered bonusescompared to fleet avg)
     CASE 
-        WHEN (SUM(s.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.85) THEN 1500.00 -- < 15% of fleet average fuel efficiency  
-        WHEN (SUM(s.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.95) THEN 750.00  -- < 5% of fleet avg efficiency
+        WHEN (SUM(fta.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.85) THEN 1500.00 
+        WHEN (SUM(fta.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.95) THEN 750.00  
         ELSE 0.00
     END AS Efficiency_Bonus,
 
-    -- 6. Total Stolen Fuel Deductions
-    SUM(CASE WHEN s.Missing_Fuel_Status = 'Stolen' 
-        THEN ((s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) * IFNULL(fuel_sub.Avg_Fuel_Cost, 0))
+    -- 6. Total Stolen Fuel Deductions 
+    SUM(CASE WHEN fta.Missing_Fuel_Status = 'Stolen' 
+        THEN (fta.missing_fuel * IFNULL(fuel_sub.Avg_Fuel_Cost, 0))
         ELSE 0 END) AS Total_Deductions,
 
-    -- 7. Net Pay Calculation
-    (((SUM(TIMESTAMPDIFF(SECOND, s.Clock_In, s.Clock_Out)) / 3600) * e.Hourly_Rate) -- gross pay
-    + (IFNULL(parcel_sub.Total_Parcels, 0) * 10.00) -- Parcels bonus
-    + (CASE 
-        WHEN (SUM(s.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.85) THEN 1500.00 
-        WHEN (SUM(s.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.95) THEN 750.00  
-        ELSE 0.00
-      END) -- Bonus
-    - SUM(CASE WHEN s.Missing_Fuel_Status = 'Stolen' 
-        THEN ((s.Tank_Start + IFNULL(fuel_sub.Total_Refills, 0) - s.Fuel_Consumed_CAN - s.Tank_End) * IFNULL(fuel_sub.Avg_Fuel_Cost, 0))
-        ELSE 0 END)) -- DeductionS
-    AS Net_Final_Pay
+    -- 7. Net Final Pay Calculation
+    (
+        ((SUM(TIMESTAMPDIFF(SECOND, s.Clock_In, s.Clock_Out)) / 3600) * e.Hourly_Rate) -- Gross
+        + (IFNULL(parcel_sub.Total_Parcels, 0) * 10.00) -- Parcel Bonus
+        + (CASE -- Efficiency Bonus
+            WHEN (SUM(fta.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.85) THEN 1500.00 
+            WHEN (SUM(fta.Fuel_Consumed_CAN) / (SUM(s.Odometer_End - s.Odometer_Start) / 100)) < (fb.Global_Avg * 0.95) THEN 750.00  
+            ELSE 0.00
+          END)
+        - SUM(CASE WHEN fta.Missing_Fuel_Status = 'Stolen' -- Deductions
+            THEN (fta.missing_fuel * IFNULL(fuel_sub.Avg_Fuel_Cost, 0))
+            ELSE 0 END)
+    ) AS Net_Final_Pay
 
 FROM Employee e
 CROSS JOIN Fleet_Baseline fb 
-JOIN Delivery_Shift s ON e.Employee_ID = s.Employee_ID
+JOIN v_Fuel_Theft_Analysis fta ON e.Employee_ID = fta.Employee_ID
+JOIN Delivery_Shift s ON fta.Shift_ID = s.Shift_ID -- Join s for time/odometer logic
 LEFT JOIN (
-    SELECT Shift_ID, SUM(Fuel_Litres) AS Total_Refills, AVG(Fuel_Cost / Fuel_Litres) AS Avg_Fuel_Cost
+    SELECT Shift_ID, AVG(Fuel_Cost / Fuel_Litres) AS Avg_Fuel_Cost
     FROM Fuel_Transaction GROUP BY Shift_ID
-) fuel_sub ON s.Shift_ID = fuel_sub.Shift_ID
--- Inside "Monthly payroll for one employee"
+) fuel_sub ON fta.Shift_ID = fuel_sub.Shift_ID
 LEFT JOIN (
     SELECT Shift_ID, COUNT(Parcel_ID) AS Total_Parcels 
     FROM Parcel 
-    WHERE Status_ID = 3 -- parcel bonus only applied to 'Delivered' parcels
+    WHERE Status_ID = 3 
     GROUP BY Shift_ID
-) parcel_sub ON s.Shift_ID = parcel_sub.Shift_ID
+) parcel_sub ON fta.Shift_ID = parcel_sub.Shift_ID
 
-WHERE s.Shift_Status = 'Completed'
-  AND MONTH(s.Shift_Date) = ? 
-  AND YEAR(s.Shift_Date) = ?
+WHERE fta.Shift_Status = 'Completed'
+  AND MONTH(fta.Shift_Date) = ? 
+  AND YEAR(fta.Shift_Date) = ?
   AND e.Employee_ID = ?
-GROUP BY e.Employee_ID, fb.Global_Avg;
+GROUP BY e.Employee_ID, fb.Global_Avg, e.Hourly_Rate;
 ```
 
 
