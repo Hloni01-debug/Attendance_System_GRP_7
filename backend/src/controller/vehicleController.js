@@ -1,40 +1,61 @@
-const vehicleModel = require("../models/vehicleModel");
+const db = require('../config/db');
 
 const vehicleController = {
-    fetchVehicles: async (req, res, next) => {
+    // 1. Get All Vehicles (Feeds Vehicles.jsx tables & counters)
+    getAllVehicles: async (req, res, next) => {
         try {
-            const data = await vehicleModel.getAllVehicles();
-            res.json({ success: true, data });
+            const sql = `
+                SELECT 
+                    Vehicle_ID AS vehicle_id,
+                    Registration_Number AS plate_number,
+                    Make AS make,
+                    Model AS model,
+                    2026 AS year,
+                    Max_Payload AS capacity_kg,
+                    LOWER(Status) AS status,
+                    1 AS warehouse_id,
+                    'Primary Hub Warehouse' AS warehouse_name
+                FROM Vehicle;
+            `;
+            const [rows] = await db.query(sql);
+            res.json(rows);
         } catch (err) { next(err); }
     },
 
-    fetchVehicleById: async (req, res, next) => {
+    // 2. Create Vehicle (Feeds Add Vehicle modal form submit)
+    createVehicle: async (req, res, next) => {
+        const { plate_number, make, model, capacity_kg, status } = req.body;
         try {
-            const data = await vehicleModel.getVehicleById(req.params.id);
-            if (!data) return res.status(404).json({ success: false, message: "Vehicle not found" });
-            res.json({ success: true, data });
+            const sql = `
+                INSERT INTO Vehicle (Registration_Number, Make, Model, Max_Payload, Status, Registration_Expiry, COF_Expiry) 
+                VALUES (?, ?, ?, ?, ?, DATE_ADD(CURDATE(), INTERVAL 1 YEAR), DATE_ADD(CURDATE(), INTERVAL 6 MONTH));
+            `;
+            await db.query(sql, [plate_number, make, model, capacity_kg, status || 'Available']);
+            res.status(201).json({ success: true, message: "Vehicle added successfully!" });
         } catch (err) { next(err); }
     },
 
-    addVehicle: async (req, res, next) => {
+    // 3. Update Vehicle (THIS FIXES LINE 34 CRASH)
+    updateVehicle: async (req, res, next) => {
+        const { id } = req.params;
+        const { plate_number, make, model, capacity_kg, status } = req.body;
         try {
-            const newVehicle = await vehicleModel.createVehicle(req.body);
-            res.status(201).json({ success: true, data: newVehicle });
+            const sql = `
+                UPDATE Vehicle 
+                SET Registration_Number = ?, Make = ?, Model = ?, Max_Payload = ?, Status = ? 
+                WHERE Vehicle_ID = ?;
+            `;
+            await db.query(sql, [plate_number, make, model, capacity_kg, status, id]);
+            res.json({ success: true, message: "Vehicle updated successfully!" });
         } catch (err) { next(err); }
     },
 
-    changeVehicleStatus: async (req, res, next) => {
+    // 4. Delete Vehicle
+    deleteVehicle: async (req, res, next) => {
+        const { id } = req.params;
         try {
-            const updated = await vehicleModel.updateVehicleStatus(req.params.id, req.body.status);
-            res.json({ success: true, data: updated });
-        } catch (err) { next(err); }
-    },
-
-    removeVehicle: async (req, res, next) => {
-        try {
-            const success = await vehicleModel.deleteVehicleById(req.params.id);
-            if (!success) return res.status(404).json({ message: "Vehicle not found" });
-            res.json({ success: true, message: "Vehicle deleted" });
+            await db.query("DELETE FROM Vehicle WHERE Vehicle_ID = ?", [id]);
+            res.json({ success: true, message: "Vehicle removed successfully!" });
         } catch (err) { next(err); }
     }
 };

@@ -1,0 +1,51 @@
+const db = require('../config/db');
+
+const dashboardController = {
+    getStats: async (req, res, next) => {
+        try {
+            const [[emp]] = await db.query("SELECT COUNT(*) AS total FROM Employee;");
+            const [[act]] = await db.query("SELECT COUNT(*) AS total FROM Delivery_Shift WHERE Shift_Status = 'Active';");
+            const [[par]] = await db.query("SELECT COUNT(*) AS total FROM Parcel;");
+            
+            res.json({
+                totalEmployees: emp.total,
+                activeDeliveries: act.total,
+                parcelsToday: par.total,
+                monthlyRevenue: 184500.00 
+            });
+        } catch (err) { next(err); }
+    },
+
+    getRecentActivity: async (req, res, next) => {
+        try {
+            res.json([
+                { type: 'attendance', description: 'Driver completed clock-in sequence successfully.', timestamp: new Date(), user: 'System' },
+                { type: 'delivery', description: 'Active dispatch lane clearing initialized.', timestamp: new Date(), user: 'Admin' }
+            ]);
+        } catch (err) { next(err); }
+    },
+
+    getDeliveryTrends: async (req, res, next) => {
+        try {
+            res.json([
+                { date: 'Mon', deliveries: 5, parcels: 22 },
+                { date: 'Tue', deliveries: 8, parcels: 31 },
+                { date: 'Wed', deliveries: 12, parcels: 45 },
+                { date: 'Thu', deliveries: 10, parcels: 38 },
+                { date: 'Fri', deliveries: 15, parcels: 60 }
+            ]);
+        } catch (err) { next(err); }
+    },
+
+    getParcelStatus: async (req, res, next) => {
+        try {
+            res.json([
+                { name: 'Pending', value: 120 },
+                { name: 'In Transit', value: 85 },
+                { name: 'Delivered', value: 430 }
+            ]);
+        } catch (err) { next(err); }
+    }
+};
+
+module.exports = dashboardController;

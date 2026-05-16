@@ -1,33 +1,37 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 5000;
 
-// Import Routes
-const authRoutes = require('./src/Routes/authRoutes');
-const vehicleRoutes = require('./src/Routes/vehicleRoutes');
-const shiftRoutes = require('./src/Routes/shiftroutes');
-const payrollRoutes = require('./src/Routes/payrollroutes');
-const auditRoutes = require('./src/Routes/auditroutes');     
+// 1. Core Middlewares
+app.use(cors()); 
+app.use(express.json()); 
 
-// Use Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/attendance', shiftRoutes);
-app.use('/api/payroll', payrollRoutes);
-app.use('/api/audit', auditRoutes);
+
+app.use('/api', require('./src/routes/apiRoutes'));
 
 
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(err.statusCode || 500).json({
+    console.error('Server Exception Intercepted:', err.stack || err.message);
+    
+    
+    if (err.code && err.code.startsWith('ER_')) {
+        return res.status(400).json({
+            success: false,
+            message: 'Database operation rejected. Check data constraints.',
+            error: err.message
+        });
+    }
+
+    res.status(err.status || 500).json({
         success: false,
-        message: err.message || "An error occurred"
+        message: err.message || 'An unexpected internal server error occurred.'
     });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// 4. Start Server Listening Engine
+app.listen(PORT, () => {
+    console.log(`Liftex backend server running on http://localhost:${PORT}/api`);
+});

@@ -1,0 +1,60 @@
+const express = require('express');
+const router = express.Router();
+
+
+const { authMiddleware } = require('../middleware/authMiddleware');
+
+const { registerUser, userLogin } = require('../controller/authController');
+const shiftController = require('../controller/shiftController');
+const employeeController = require('../controller/employeeController');
+const vehicleController = require('../controller/vehicleController');
+const warehouseController = require('../controller/warehouseController');
+const parcelController = require('../controller/parcelController');
+const dashboardController = require('../controller/dashboardController');
+const reportsController = require('../controller/reportsController');
+
+// 1. Core Auth Endpoints
+router.post('/auth/register', registerUser);
+router.post('/auth/login', userLogin);
+
+// 2. Attendance & Delivery Shifts
+router.get('/attendance', authMiddleware, shiftController.getAllShifts);
+router.get('/attendance/today', authMiddleware, shiftController.getMyShift);
+router.post('/attendance/check-in', authMiddleware, shiftController.clockIn);
+router.put('/attendance/check-out', authMiddleware, shiftController.clockOut);
+router.get('/delivery-shifts', authMiddleware, shiftController.getAllShifts);
+
+// 3. Employee Profiles 
+router.get('/employees', authMiddleware, employeeController.fetchEmployees);
+router.post('/employees', authMiddleware, employeeController.addEmployee);
+router.put('/employees/:id', authMiddleware, employeeController.updateEmployee);
+router.delete('/employees/:id', authMiddleware, employeeController.removeEmployee);
+router.get('/employees/search', authMiddleware, employeeController.searchEmployees);
+
+// 4. vehicles
+router.get('/vehicles', authMiddleware, vehicleController.getAllVehicles);
+router.post('/vehicles', authMiddleware, vehicleController.createVehicle);
+router.put('/vehicles/:id', authMiddleware, vehicleController.updateVehicle);
+router.delete('/vehicles/:id', authMiddleware, vehicleController.deleteVehicle);
+
+// 5. inventory
+router.get('/warehouses', authMiddleware, warehouseController.getAllWarehouses);
+router.post('/warehouses', authMiddleware, warehouseController.createWarehouse);
+
+// 6. Packages
+router.get('/parcels', authMiddleware, parcelController.getAllParcels);
+router.post('/parcels', authMiddleware, parcelController.createParcel);
+router.get('/parcels/search', authMiddleware, parcelController.searchParcels);
+
+// 7. Operations Analytics Command center
+router.get('/dashboard/stats', authMiddleware, dashboardController.getStats);
+router.get('/dashboard/recent-activity', authMiddleware, dashboardController.getRecentActivity);
+router.get('/dashboard/delivery-trends', authMiddleware, dashboardController.getDeliveryTrends);
+router.get('/dashboard/parcel-status', authMiddleware, dashboardController.getParcelStatus);
+
+router.get('/reports/comparison', authMiddleware, reportsController.getComparisonData);
+
+router.get('/notifications', authMiddleware, (req, res) => res.json([]));
+router.get('/payroll', authMiddleware, (req, res) => res.json([]));
+
+module.exports = router;

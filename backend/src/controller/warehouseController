@@ -1,0 +1,32 @@
+const db = require('../config/db');
+
+const warehouseController = {
+    // 1. Get All Warehouses
+    getAllWarehouses: async (req, res, next) => {
+        try {
+            const sql = `
+                SELECT 
+                    Warehouse_ID AS warehouse_id,
+                    Name AS name,
+                    CONCAT(IFNULL(Street,''), ', ', IFNULL(City,''), ', ', IFNULL(Province,'')) AS location,
+                    Contact_Number AS contact_phone,
+                    NOW() AS created_at
+                FROM Warehouse;
+            `;
+            const [rows] = await db.query(sql);
+            res.json(rows);
+        } catch (err) { next(err); }
+    },
+
+    // 2. Create Warehouse
+    createWarehouse: async (req, res, next) => {
+        const { name, location, contact_phone } = req.body;
+        try {
+            const sql = `INSERT INTO Warehouse (Name, Street, City, Contact_Number) VALUES (?, ?, 'East London', ?);`;
+            await db.query(sql, [name, location, contact_phone]);
+            res.status(201).json({ success: true, message: "Warehouse created successfully!" });
+        } catch (err) { next(err); }
+    }
+};
+
+module.exports = warehouseController;
