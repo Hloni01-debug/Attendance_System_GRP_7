@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS Payroll_Record (
   Employee_ID         INT UNSIGNED NOT NULL,
   Payroll_Date        DATE NOT NULL, 
   Applied_Hourly_Rate DECIMAL(10,2) NOT NULL, 
-  CONSTRAINT fk_pay_emp FOREIGN KEY (Employee_ID) REFERENCES Employee(Employee_ID)
+  CONSTRAINT fk_pay_emp FOREIGN KEY (Employee_ID) REFERENCES Employee(Employee_ID) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- 11. AUDIT_LOG
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS Audit_Log (
   -- Composite Primary Key as specified in Logical Design
   PRIMARY KEY (Log_ID, Employee_ID), 
   -- Strong relationship link back to Employee table, following phase 2 doc
-  CONSTRAINT fk_audit_emp_actor FOREIGN KEY (Employee_ID) REFERENCES Employee(Employee_ID)
+  CONSTRAINT fk_audit_emp_actor FOREIGN KEY (Employee_ID) REFERENCES Employee(Employee_ID) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- 12. VIEW: Driver Legal Compliance (Updated)

@@ -18,6 +18,20 @@ export default function Deliveries() {
     route_notes: '',
   });
 
+  // --- SECTION 1: INSPECTION MODAL STATE ---
+  const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
+  const [selectedShiftId, setSelectedShiftId] = useState(null);
+  const [fuelStatus, setFuelStatus] = useState('None');
+
+  // --- SECTION 2: MANUAL LOG ENTRY STATE ---
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [activeCompleteShiftId, setActiveCompleteShiftId] = useState(null);
+  const [completeFormData, setCompleteFormData] = useState({
+    odometer_end: '',
+    tank_end: '',
+    fuel_consumed_can: ''
+  });
+
   useEffect(() => {
     fetchShifts();
     fetchVehicles();
@@ -56,6 +70,7 @@ export default function Deliveries() {
     }
   };
 
+  // Handles standard planned -> active transitions
   const handleUpdateStatus = async (shiftId, status) => {
     try {
       await api.put(`/delivery-shifts/${shiftId}/status`, { status });
@@ -63,6 +78,34 @@ export default function Deliveries() {
       fetchShifts();
     } catch (error) {
       toast.error('Failed to update shift status');
+    }
+  };
+
+  // Handles interactive form submissions for shift closures
+  const handleFinalizeShiftCompletion = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/delivery-shifts/${activeCompleteShiftId}/status`, {
+        status: 'completed',
+        ...completeFormData
+      });
+      toast.success('Shift diagnostics captured and finalized successfully!');
+      setIsCompleteModalOpen(false);
+      setCompleteFormData({ odometer_end: '', tank_end: '', fuel_consumed_can: '' });
+      fetchShifts();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to finalize shift logs');
+    }
+  };
+  
+  const handleSaveInspection = async () => {
+    try {
+      await api.put(`/delivery-shifts/${selectedShiftId}/inspection`, { fuelStatus });
+      toast.success(`Inspection complete. Status set to ${fuelStatus}.`);
+      setIsInspectModalOpen(false);
+      fetchShifts(); 
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update fuel status.");
     }
   };
 
@@ -81,7 +124,7 @@ export default function Deliveries() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Delivery Shifts</h1>
-        {user?.role === 'admin' && (
+        {user?.role?.includes('admin') && (
           <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
             <Plus size={18} />
             Create Shift
@@ -147,19 +190,37 @@ export default function Deliveries() {
                         {shift.status === 'planned' && (
                           <button
                             onClick={() => handleUpdateStatus(shift.shift_id, 'active')}
-                            className="text-green-600 hover:text-green-800 text-sm"
+                            className="text-green-600 hover:text-green-800 text-sm font-medium"
                           >
                             Start
                           </button>
                         )}
                         {shift.status === 'active' && (
                           <button
-                            onClick={() => handleUpdateStatus(shift.shift_id, 'completed')}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            onClick={() => {
+                              setActiveCompleteShiftId(shift.shift_id);
+                              setIsCompleteModalOpen(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                           >
                             Complete
                           </button>
                         )}
+                        
+                        {/* --- inspect button --- */}
+                        {user?.role?.includes('admin') && shift.status === 'completed' && (
+                          <button
+                            onClick={() => {
+                              setSelectedShiftId(shift.shift_id);
+                              setFuelStatus(shift.missing_fuel_status || 'None');
+                              setIsInspectModalOpen(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                          >
+                            Inspect
+                          </button>
+                        )}
+
                         <button className="text-gray-400 hover:text-gray-600">
                           <MoreVertical size={16} />
                         </button>
@@ -220,6 +281,110 @@ export default function Deliveries() {
                 <button type="button" onClick={() => setShowModal(false)} className="btn-outline flex-1">Cancel</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- SECTION 3: INTERACTIVE MANUAL COMPLETION MODAL --- */}
+      {isCompleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-1">Finalize Shift Logs (#{activeCompleteShiftId})</h2>
+            <p className="text-xs text-gray-500 mb-4">Input shift ending values.</p>
+            
+            <form onSubmit={handleFinalizeShiftCompletion} className="space-y-4">
+              <div>
+                <label className="label">Final Odometer Reading (km)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  required
+                  value={completeFormData.odometer_end}
+                  onChange={(e) => setCompleteFormData({ ...completeFormData, odometer_end: e.target.value })}
+                  placeholder="e.g. 14520.50"
+                />
+              </div>
+              
+              <div>
+                <label className="label">Final Tank Fuel Level (Litres)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  required
+                  value={completeFormData.tank_end}
+                  onChange={(e) => setCompleteFormData({ ...completeFormData, tank_end: e.target.value })}
+                  placeholder="e.g. 45.20"
+                />
+              </div>
+
+              <div>
+                <label className="label">Expected Fuel Consumption (CAN-bus Litres)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  required
+                  value={completeFormData.fuel_consumed_can}
+                  onChange={(e) => setCompleteFormData({ ...completeFormData, fuel_consumed_can: e.target.value })}
+                  placeholder="e.g. 16.80"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="btn-primary flex-1">Finalize Shift</button>
+                <button type="button" onClick={() => setIsCompleteModalOpen(false)} className="btn-outline flex-1">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- fuel and fleet compliance --- */}
+      {isInspectModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <div className="border-b pb-2">
+              <h2 className="text-xl font-bold text-gray-800">
+                Shift Inspection Audit (#{selectedShiftId})
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                fuel discrepancies versus fuel receipts.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Categorize Discrepancy Status
+              </label>
+              <select 
+                value={fuelStatus} 
+                onChange={(e) => setFuelStatus(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="None">None (Clear / No Variance)</option>
+                <option value="Stolen">Stolen (Flag Payroll Recovery Deduction)</option>
+                <option value="Mechanical Fault">Mechanical Fault (Ground Asset for Repair Info)</option>
+              </select>
+            </div>
+            
+            <div className="flex gap-3 pt-2">
+              <button 
+                type="button" 
+                onClick={() => setIsInspectModalOpen(false)} 
+                className="btn-outline flex-1 text-sm py-2"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handleSaveInspection} 
+                className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium flex-1 text-sm py-2"
+              >
+                Save Review
+              </button>
+            </div>
           </div>
         </div>
       )}

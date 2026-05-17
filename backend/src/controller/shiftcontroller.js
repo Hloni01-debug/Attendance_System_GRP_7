@@ -5,7 +5,9 @@ const shiftController = {
     clockIn: async (req, res, next) => {
         const { shift_id, odometerStart, tankStart } = req.body;
         try {
-            await db.query("SET @current_user_id = ?;", [req.user.employeeId]);
+            const actorId = req.user?.employeeId || req.user?.employee_id || 1;
+            await db.query("SET @current_user_id = ?;", [actorId]);
+            
             const sql = `UPDATE Delivery_Shift SET Clock_In = NOW(), Odometer_Start = ?, Tank_Start = ?, Shift_Status = 'Active' WHERE Shift_ID = ? AND Shift_Status = 'Planned';`;
             const [result] = await db.query(sql, [odometerStart, tankStart, shift_id]);
             if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "No planned shift found." });
@@ -18,7 +20,9 @@ const shiftController = {
         const { shift_id, odometerEnd, tankEnd, fuelConsumedCan } = req.body;
         const id = req.params.id || shift_id;
         try {
-            await db.query("SET @current_user_id = ?;", [req.user.employeeId]);
+            const actorId = req.user?.employeeId || req.user?.employee_id || 1;
+            await db.query("SET @current_user_id = ?;", [actorId]);
+            
             const updateSql = `UPDATE Delivery_Shift SET Odometer_End = ?, Tank_End = ?, Fuel_Consumed_CAN = ?, Clock_Out = NOW() WHERE Shift_ID = ? AND Shift_Status = 'Active';`;
             await db.query(updateSql, [odometerEnd, tankEnd, fuelConsumedCan, id]);
             const [analysis] = await db.query("SELECT missing_fuel, Missing_Fuel_Status FROM v_Fuel_Theft_Analysis WHERE Shift_ID = ?", [id]);
@@ -30,7 +34,9 @@ const shiftController = {
     startSpontaneousShift: async (req, res, next) => {
         const { vehicleId, startWarehouseId, odometerStart, tankStart } = req.body;
         try {
-            await db.query("SET @current_user_id = ?;", [req.user.employeeId]);
+            const actorId = req.user?.employeeId || req.user?.employee_id || 1;
+            await db.query("SET @current_user_id = ?;", [actorId]);
+            
             const sql = `INSERT INTO Delivery_Shift (Employee_ID, Vehicle_ID, Start_Warehouse_ID, End_Warehouse_ID, Shift_Date, Clock_In, Odometer_Start, Tank_Start, Shift_Status) VALUES (?, ?, ?, ?, CURRENT_DATE, NOW(), ?, ?, 'Active');`;
             const [result] = await db.query(sql, [req.user.employeeId, vehicleId, startWarehouseId, startWarehouseId, odometerStart, tankStart]);
             res.status(201).json({ success: true, message: "Spontaneous shift started!", shiftId: result.insertId });
@@ -64,7 +70,9 @@ const shiftController = {
         const { id } = req.params;
         const { fuelStatus } = req.body; 
         try {
-            await db.query("SET @current_user_id = ?;", [req.user.employeeId]);
+            const actorId = req.user?.employeeId || req.user?.employee_id || 1;
+            await db.query("SET @current_user_id = ?;", [actorId]);
+            
             await db.query(`UPDATE Delivery_Shift SET Missing_Fuel_Status = ? WHERE Shift_ID = ?`, [fuelStatus, id]);
             if (fuelStatus === 'Mechanical Fault') {
                 await db.query(`UPDATE Vehicle v JOIN Delivery_Shift s ON v.Vehicle_ID = s.Vehicle_ID SET v.Status = 'Maintenance' WHERE s.Shift_ID = ?;`, [id]);
@@ -100,6 +108,53 @@ const shiftController = {
             const [rows] = await db.query(sql);
             res.json(rows);
         } catch (err) { next(err); }
+    },
+    
+    // 7. Admin Update Shift Status (Connected Modal Endpoint)
+    updateStatus: async (req, res, next) => {
+        const { id } = req.params;
+        const { status, odometer_end, tank_end, fuel_consumed_can } = req.body;
+        
+        const connection = await db.getConnection();
+        
+        try {
+
+            const adminActorId = req.user?.employeeId || req.user?.employee_id || 1;
+            await connection.query("SET @current_user_id = ?;", [adminActorId]);
+
+            if (status === 'active') {
+                const sql = `
+                    UPDATE Delivery_Shift 
+                    SET Clock_In = NOW(), 
+                        Shift_Status = 'Active' 
+                    WHERE Shift_ID = ?;
+                `;
+                await connection.query(sql, [id]);
+
+            } else if (status === 'completed') {
+                const cleanOdometer = odometer_end && odometer_end !== '' ? parseFloat(odometer_end) : 0.00;
+                const cleanTank = tank_end && tank_end !== '' ? parseFloat(tank_end) : 0.00;
+                const cleanCanBus = fuel_consumed_can && fuel_consumed_can !== '' ? parseFloat(fuel_consumed_can) : 0.00;
+
+                const sql = `
+                    UPDATE Delivery_Shift 
+                    SET Clock_Out = NOW(),
+                        Odometer_End = ?,
+                        Tank_End = ?,
+                        Fuel_Consumed_CAN = ?
+                    WHERE Shift_ID = ?;
+                `;
+                await connection.query(sql, [cleanOdometer, cleanTank, cleanCanBus, id]);
+            } else {
+                await connection.query("UPDATE Delivery_Shift SET Shift_Status = ? WHERE Shift_ID = ?;", [status, id]);
+            }
+
+            res.json({ success: true, message: `Shift status successfully updated to ${status}.` });
+        } catch (err) { 
+            next(err); 
+        } finally {
+            connection.release();
+        }
     }
 };
 

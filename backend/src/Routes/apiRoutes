@@ -23,6 +23,8 @@ router.get('/attendance/today', authMiddleware, shiftController.getMyShift);
 router.post('/attendance/check-in', authMiddleware, shiftController.clockIn);
 router.put('/attendance/check-out', authMiddleware, shiftController.clockOut);
 router.get('/delivery-shifts', authMiddleware, shiftController.getAllShifts);
+router.put('/delivery-shifts/:id/inspection', authMiddleware, shiftController.updateInspectionStatus);
+router.put('/delivery-shifts/:id/status', authMiddleware, shiftController.updateStatus);
 
 // 3. Employee Profiles 
 router.get('/employees', authMiddleware, employeeController.fetchEmployees);
