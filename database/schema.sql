@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS Parcel (
   Destination_Address VARCHAR(100),
   Receiver_Name       VARCHAR(100),
   Status_ID           INT UNSIGNED DEFAULT 1, 
-  CONSTRAINT fk_parcel_shift FOREIGN KEY (Shift_ID) REFERENCES Delivery_Shift(Shift_ID),
+  CONSTRAINT fk_parcel_shift FOREIGN KEY (Shift_ID) REFERENCES Delivery_Shift(Shift_ID) ON DELETE SET NULL,
   CONSTRAINT fk_parcel_wh FOREIGN KEY (Warehouse_ID) REFERENCES Warehouse(Warehouse_ID),
   CONSTRAINT fk_parcel_status FOREIGN KEY (Status_ID) REFERENCES Parcel_Status(Status_ID) 
 ) ENGINE=InnoDB;
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS Fuel_Transaction (
   Shift_ID            INT UNSIGNED NOT NULL,
   Fuel_Litres         DECIMAL(10,2) NOT NULL,
   Fuel_Cost           DECIMAL(10,2) NOT NULL, 
-  CONSTRAINT fk_fuel_shift FOREIGN KEY (Shift_ID) REFERENCES Delivery_Shift(Shift_ID)
+  CONSTRAINT fk_fuel_shift FOREIGN KEY (Shift_ID) REFERENCES Delivery_Shift(Shift_ID) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- 10. PAYROLL_RECORD

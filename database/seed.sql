@@ -30,7 +30,7 @@ INSERT INTO Employee (Warehouse_ID, Role_ID, First_Name, Last_Name, Email, Passw
 (1, 2, 'Bob', 'Jones', 'bob@liftex.co.za', 'bobpass', '0898738264', 200.00, 0, '2027-05-20'),  
 (2, 1, 'Charlie', 'Brown', 'charlie@liftex.co.za', 'charliePass', '0712345678', 155.00, 12, '2023-01-01'), 
 (1, 1, 'Lerato', 'Sechaba', 'Lerato@liftex.co.za','Leratopass', '0831234567', 145.00, 2, '2026-11-15'),  
-(3, 1, 'Eve', 'Wilson', 'driver@liftex.co.za', 'password123', '0722223333', 160.00, 0, '2027-01-01'), 
+(3, 1, 'Eve', 'Wilson', 'driver1@liftex.co.za', 'password123', '0722223333', 160.00, 0, '2027-01-01'), 
 (3, 2, 'Kgosi', 'Morafe', 'admin@liftex.co.za', 'password123', '0722224444', 160.00, 0, '2027-01-01'); -- Semicolon ONLY here
 
 -- 4. VEHICLE (Multiple Classes)
