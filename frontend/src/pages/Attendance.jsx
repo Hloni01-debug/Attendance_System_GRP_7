@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, XCircle, Search, Filter, Download } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Search, Download } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { formatDateTime, formatTimeOnly } from '../utils/helpers';
+import { formatTimeOnly } from '../utils/helpers';
 
 export default function Attendance() {
   const { user } = useAuthStore();
@@ -81,13 +81,26 @@ export default function Attendance() {
   };
 
   const getStatusBadge = (record) => {
-    if (record.check_in && !record.check_out) {
+    if (record.status === 'active') {
       return <span className="badge badge-warning">Active</span>;
     }
-    if (record.check_in && record.check_out) {
+    if (record.status === 'completed') {
       return <span className="badge badge-success">Completed</span>;
     }
+    if (record.status === 'planned') {
+      return <span className="badge badge-info">Planned</span>;
+    }
     return <span className="badge badge-secondary">Absent</span>;
+  };
+
+  const formatDateToYMD = (dateInput) => {
+    if (!dateInput) return '-';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '-';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}/${mm}/${dd}`;
   };
 
   if (loading) {
@@ -100,7 +113,6 @@ export default function Attendance() {
 
   return (
     <div className="space-y-6">
-      {/* Today's Attendance Card for Drivers */}
       {user?.role === 'driver' && (
         <div className="card">
           <div className="card-header">Today's Attendance</div>
@@ -120,7 +132,7 @@ export default function Attendance() {
                 <div className="flex items-center gap-6">
                   <div>
                     <p className="text-sm text-gray-500">Check-in Time</p>
-                    <p className="font-medium">{formatTimeOnly(todayAttendance.check_in)}</p>
+                    <p className="font-medium">{todayAttendance.check_in ? formatTimeOnly(todayAttendance.check_in) : '-'}</p>
                   </div>
                   {todayAttendance.check_out && (
                     <div>
@@ -128,10 +140,10 @@ export default function Attendance() {
                       <p className="font-medium">{formatTimeOnly(todayAttendance.check_out)}</p>
                     </div>
                   )}
-                  {todayAttendance.hours_worked && (
+                  {todayAttendance.hours_worked !== undefined && (
                     <div>
                       <p className="text-sm text-gray-500">Hours Worked</p>
-                      <p className="font-medium">{todayAttendance.hours_worked}</p>
+                      <p className="font-medium">{!todayAttendance.check_out ? '-' : `${todayAttendance.hours_worked} hrs`}</p>
                     </div>
                   )}
                   <div className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm">
@@ -177,7 +189,6 @@ export default function Attendance() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="card">
         <div className="card-header">
           <div className="flex items-center justify-between">
@@ -199,11 +210,16 @@ export default function Attendance() {
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Employees</option>
-                  {employees.map(emp => (
-                    <option key={emp.employee_id} value={emp.employee_id}>
-                      {emp.first_name} {emp.last_name}
-                    </option>
-                  ))}
+                  {employees.map(emp => {
+                    const empId = emp.Employee_ID || emp.employee_id;
+                    const fName = emp.First_Name || emp.first_name;
+                    const lName = emp.Last_Name || emp.last_name;
+                    return (
+                      <option key={empId} value={empId}>
+                        {fName} {lName}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
               <button className="btn-outline flex items-center gap-2">
@@ -231,10 +247,10 @@ export default function Attendance() {
                 {attendanceRecords.map((record) => (
                   <tr key={record.attendance_id}>
                     <td className="font-medium">{record.employee_name}</td>
-                    <td>{formatDateTime(record.check_in, 'MMM dd, yyyy')}</td>
-                    <td>{formatTimeOnly(record.check_in)}</td>
+                    <td>{formatDateToYMD(record.shift_date || record.check_in)}</td>
+                    <td>{record.check_in ? formatTimeOnly(record.check_in) : '-'}</td>
                     <td>{record.check_out ? formatTimeOnly(record.check_out) : '-'}</td>
-                    <td>{record.hours_worked || '-'}</td>
+                    <td>{!record.check_out ? '-' : `${Number(record.hours_worked || 0).toFixed(1)} hrs`}</td>
                     <td>{record.warehouse_name}</td>
                     <td>{getStatusBadge(record)}</td>
                   </tr>

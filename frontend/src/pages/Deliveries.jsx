@@ -350,13 +350,13 @@ export default function Deliveries() {
                 Shift Inspection Audit (#{selectedShiftId})
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                fuel discrepancies versus fuel receipts.
+                missing fuel review audit
               </p>
             </div>
             
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">
-                Categorize Discrepancy Status
+                Missing Fuel Status
               </label>
               <select 
                 value={fuelStatus} 

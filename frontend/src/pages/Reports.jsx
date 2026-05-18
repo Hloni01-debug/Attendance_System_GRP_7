@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FileText, Download, Filter, BarChart3, PieChart, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell } from 'recharts';
@@ -6,7 +7,7 @@ export default function Reports() {
   const [reportType, setReportType] = useState('delivery');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Sample data - would come from API
+  // ALL DATA IS PLACEHOLDER DATA FOR NOW. COULDNT IMPLEMENT IN TIME
   const deliveryData = [
     { month: 'Jan', deliveries: 1245, revenue: 45600 },
     { month: 'Feb', deliveries: 1380, revenue: 51200 },

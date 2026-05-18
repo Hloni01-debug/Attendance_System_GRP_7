@@ -13,6 +13,7 @@ import Warehouses from './pages/Warehouses';
 import Reports from './pages/Reports';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import AuditLogs from './pages/AuditLogs';
 
 function App() {
   const { token, user } = useAuthStore();
@@ -34,6 +35,7 @@ function App() {
             <Route path="/deliveries" element={<Deliveries />} />
             <Route path="/parcels" element={<Parcels />} />
             <Route path="/vehicles" element={<Vehicles />} />
+            <Route path="/auditlogs" element={<AuditLogs />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/warehouses" element={<Warehouses />} />

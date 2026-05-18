@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS Delivery_Shift (
 -- 7 Parcel_Status
 CREATE TABLE IF NOT EXISTS Parcel_Status (
   Status_ID          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  Status_Name        VARCHAR(100) NOT NULL, -- e.g., 'Pending'
+  Status_Name        VARCHAR(100) NOT NULL,
   Status_Description VARCHAR(255)
 ) ENGINE=InnoDB;
 
@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS Parcel (
   CONSTRAINT fk_parcel_wh FOREIGN KEY (Warehouse_ID) REFERENCES Warehouse(Warehouse_ID),
   CONSTRAINT fk_parcel_status FOREIGN KEY (Status_ID) REFERENCES Parcel_Status(Status_ID) 
 ) ENGINE=InnoDB;
+
 -- 9. FUEL_TRANSACTION
 CREATE TABLE IF NOT EXISTS Fuel_Transaction (
   Fuel_Transaction_ID INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -116,20 +117,18 @@ CREATE TABLE IF NOT EXISTS Payroll_Record (
 -- 11. AUDIT_LOG
 CREATE TABLE IF NOT EXISTS Audit_Log (
   Log_ID           INT UNSIGNED AUTO_INCREMENT,
-  Employee_ID      INT UNSIGNED NOT NULL, -- THE ADMIN: The person who "generates" the log
+  Employee_ID      INT UNSIGNED NOT NULL,
   Action_Type      VARCHAR(50) NOT NULL, 
   Table_Affected   VARCHAR(50),
   Action_Timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  Old_Value        VARCHAR(200), -- will also add ID's here of the changed tables
+  Old_Value        VARCHAR(200),
   New_Value        VARCHAR(200),
-  -- Composite Primary Key as specified in Logical Design
   PRIMARY KEY (Log_ID, Employee_ID), 
-  -- Strong relationship link back to Employee table, following phase 2 doc
   CONSTRAINT fk_audit_emp_actor FOREIGN KEY (Employee_ID) REFERENCES Employee(Employee_ID) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- 12. VIEW: Driver Legal Compliance (Updated)
-CREATE VIEW v_Driver_Compliance AS
+CREATE OR REPLACE VIEW v_Driver_Compliance AS
 SELECT 
     e.Employee_ID,
     e.Role_ID, 
@@ -162,7 +161,7 @@ FROM Employee e
 JOIN Role r ON e.Role_ID = r.Role_ID;
 
 -- 13. VIEW: Vehicle Legal Compliance
-CREATE VIEW v_Vehicle_Compliance AS
+CREATE OR REPLACE VIEW v_Vehicle_Compliance AS
 SELECT 
     Vehicle_ID,
     Registration_Number,
@@ -204,7 +203,6 @@ SELECT
     s.Odometer_End - s.Odometer_Start AS Distance_Travelled,
     s.Tank_Start + IFNULL(ft.Total_Refuel, 0) - s.Tank_End AS Actual_Consumption,
     s.Fuel_Consumed_CAN AS Expected_Consumption,
-    -- The Logic Specialist's math:
     (s.Tank_Start + IFNULL(ft.Total_Refuel, 0) - s.Tank_End) - s.Fuel_Consumed_CAN AS missing_fuel,
     s.Missing_Fuel_Status
 FROM Delivery_Shift s
@@ -218,6 +216,8 @@ LEFT JOIN (
 -- 15 Triggers
  
 -- 15.1 Payload Enforcement Trigger (prevents parcel INSERT into SHIFT if it exceeds the vehicle's maximum payload)
+
+DROP TRIGGER IF EXISTS check_max_payload_before_insert;
 
 DELIMITER //
 
@@ -244,6 +244,8 @@ END; //
 DELIMITER ;
 
 -- 15.2 Payload Enforcement Trigger (prevents parcel UPDATE into shift if it exceeds the vehicle's maximum payload)
+
+DROP TRIGGER IF EXISTS check_max_payload_before_update;
 
 DELIMITER //
 
@@ -272,6 +274,8 @@ DELIMITER ;
 
 -- 15.3 Driver and Legal compliance trigger (only allows drivers and vehicles with valid legal compliance to start a shift)
 
+DROP TRIGGER IF EXISTS trg_validate_dispatch_requirements;
+
 DELIMITER //
 
 CREATE TRIGGER trg_validate_dispatch_requirements
@@ -298,13 +302,12 @@ DELIMITER ;
 DELIMITER //
 
 -- 15.4.1 automatic status management
-DELIMITER //
+DROP TRIGGER IF EXISTS trg_manage_shift_status //
 
 CREATE TRIGGER trg_manage_shift_status
 BEFORE UPDATE ON Delivery_Shift
 FOR EACH ROW
 BEGIN
-    -- If the driver enters a Clock_Out time, automatically set status to 'Completed'
     IF NEW.Clock_Out IS NOT NULL AND OLD.Clock_Out IS NULL THEN
         IF NEW.Clock_In IS NOT NULL AND TIMESTAMPDIFF(SECOND, NEW.Clock_In, NEW.Clock_Out) >= 0 THEN
             SET NEW.Shift_Status = 'Completed';
@@ -315,7 +318,6 @@ BEGIN
         END IF;
     END IF;
 
-    -- Cleanup for abandoned shifts (Your existing logic)
     IF NEW.Shift_Status != 'Completed' AND NEW.Shift_Date < CURRENT_DATE THEN
         SET NEW.Shift_Status = 'Cancelled';
     END IF;
@@ -324,11 +326,14 @@ DELIMITER ;
 
 
 -- 15.4.2 Syncing vehicle to deliver shift update
+DROP TRIGGER IF EXISTS trg_sync_vehicle_status_after_shift;
+
+DELIMITER //
+
 CREATE TRIGGER trg_sync_vehicle_status_after_shift
 AFTER UPDATE ON Delivery_Shift
 FOR EACH ROW
 BEGIN
-    -- A. PRIMARY STATUS SYNC
     IF NEW.Shift_Status = 'Planned' THEN
         UPDATE Vehicle SET Status = 'Reserved' WHERE Vehicle_ID = NEW.Vehicle_ID;
     
@@ -339,13 +344,9 @@ BEGIN
         UPDATE Vehicle SET Status = 'Available' WHERE Vehicle_ID = NEW.Vehicle_ID;
     END IF;
 
-    -- B. van swaps
-    -- If the Vehicle_ID itself was changed, we must change the old vehicle too
     IF OLD.Vehicle_ID != NEW.Vehicle_ID THEN
-        -- 1. set old vehicle to 'available'
         UPDATE Vehicle SET Status = 'Available' WHERE Vehicle_ID = OLD.Vehicle_ID;
         
-        -- 2. give the New vehicle a status reflecting the current shift
         UPDATE Vehicle 
         SET Status = CASE 
             WHEN NEW.Shift_Status = 'Active' THEN 'In_Use'
@@ -358,7 +359,9 @@ END; //
 
 DELIMITER ;
 
---15.5 Audit log triggers for important information
+-- 15.5 Audit log triggers for important information
+
+DROP TRIGGER IF EXISTS trg_audit_employee_changes;
 
 DELIMITER //
 
@@ -367,36 +370,34 @@ CREATE TRIGGER trg_audit_employee_changes
 AFTER UPDATE ON Employee
 FOR EACH ROW
 BEGIN
-    -- Aarto changes
-    IF OLD.AARTO_Violations != NEW.AARTO_Violations THEN
+    IF NOT (OLD.AARTO_Violations <=> NEW.AARTO_Violations) THEN
         INSERT INTO Audit_Log (Employee_ID, Action_Type, Table_Affected, Old_Value, New_Value)
         VALUES (@current_user_id, 'AARTO_UPDATE', 'Employee', 
                 CONCAT('TargetEmpID: ', NEW.Employee_ID, ' | Old: ', OLD.AARTO_Violations), 
                 CAST(NEW.AARTO_Violations AS CHAR));
     END IF;
 
-    -- Hourly rate audit
-    IF OLD.Hourly_Rate != NEW.Hourly_Rate THEN
+    IF NOT (OLD.Hourly_Rate <=> NEW.Hourly_Rate) THEN
         INSERT INTO Audit_Log (Employee_ID, Action_Type, Table_Affected, Old_Value, New_Value)
         VALUES (@current_user_id, 'RATE_UPDATE', 'Employee', 
                 CONCAT('TargetEmpID: ', NEW.Employee_ID, ' | Old: ', OLD.Hourly_Rate), 
                 CAST(NEW.Hourly_Rate AS CHAR));
     END IF;
 
-    -- prpd expiry date audit
-    IF OLD.Prdp_Expiry != NEW.Prdp_Expiry OR (OLD.Prdp_Expiry IS NULL AND NEW.Prdp_Expiry IS NOT NULL) THEN
+    IF NOT (OLD.Prdp_Expiry <=> NEW.Prdp_Expiry) THEN
         INSERT INTO Audit_Log (Employee_ID, Action_Type, Table_Affected, Old_Value, New_Value)
         VALUES (@current_user_id, 'PRDP_EXPIRY_UPDATE', 'Employee', 
                 CONCAT('TargetEmpID: ', NEW.Employee_ID, ' | Old: ', IFNULL(CAST(OLD.Prdp_Expiry AS CHAR), 'NULL')), 
-                CAST(NEW.Prdp_Expiry AS CHAR));
+                IFNULL(CAST(NEW.Prdp_Expiry AS CHAR), 'NULL'));
     END IF;
-
-
-    
 END; //
 
 
 -- 15.5.2 VEHICLE TABLE AUDIT
+DROP TRIGGER IF EXISTS trg_audit_vehicle_changes;
+
+DELIMITER //
+
 CREATE TRIGGER trg_audit_vehicle_changes
 AFTER UPDATE ON Vehicle
 FOR EACH ROW
@@ -411,6 +412,10 @@ END; //
 
 
 -- 15.5.3 DELIVERY SHIFT OVERRIDE AUDIT
+DROP TRIGGER IF EXISTS trg_audit_shift_overrides;
+
+DELIMITER //
+
 CREATE TRIGGER trg_audit_shift_overrides
 AFTER UPDATE ON Delivery_Shift
 FOR EACH ROW
@@ -419,11 +424,10 @@ BEGIN
         INSERT INTO Audit_Log (Employee_ID, Action_Type, Table_Affected, Old_Value, New_Value)
         VALUES (
             @current_user_id, 
-            -- The Logic Specialist's Labeler:
             CASE 
                 WHEN NEW.Shift_Status = 'Completed' THEN 'DRIVER_CLOCK_OUT'
                 WHEN NEW.Shift_Status = 'Active'    THEN 'DRIVER_CLOCK_IN'
-                ELSE 'SHIFT_STATUS_OVERRIDE' -- Catch-all for Admin/Manual changes
+                ELSE 'SHIFT_STATUS_OVERRIDE' 
             END,
             'Delivery_Shift', 
             CONCAT('ShiftID: ', NEW.Shift_ID, ' | Prev: ', OLD.Shift_Status), 
@@ -433,23 +437,25 @@ BEGIN
 END; //
 
 -- 15.5.5. PAYROLL RECORD AUDIT
+DROP TRIGGER IF EXISTS trg_audit_payroll_rates;
+
+DELIMITER //
+
 CREATE TRIGGER trg_audit_payroll_rates
 AFTER UPDATE ON Payroll_Record
 FOR EACH ROW
 BEGIN
-    -- Log changes to the applied hourly rate
     IF OLD.Applied_Hourly_Rate != NEW.Applied_Hourly_Rate THEN
         INSERT INTO Audit_Log (
-            Employee_ID,     -- The Admin making the change
+            Employee_ID, 
             Action_Type, 
             Table_Affected, 
             Old_Value, 
             New_Value
         ) VALUES (
-            @current_user_id, -- Grabs the session variable for the Admin
+            @current_user_id, 
             'PAYROLL_RATE_CHANGE', 
             'Payroll_Record', 
-            -- primary key ID of altered table written here 
             CONCAT('TargetEmpID: ', NEW.Employee_ID, ' | Old: ', OLD.Applied_Hourly_Rate), 
             CAST(NEW.Applied_Hourly_Rate AS CHAR)
         );
@@ -457,6 +463,3 @@ BEGIN
 END; //
 
 DELIMITER ;
-
-
-

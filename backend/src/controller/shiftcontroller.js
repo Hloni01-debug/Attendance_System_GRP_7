@@ -50,10 +50,15 @@ const shiftController = {
                 SELECT 
                     s.Shift_ID AS shift_id,
                     s.Shift_ID AS attendance_id,
+                    s.Shift_Date AS shift_date,
                     s.Clock_In AS check_in,
                     s.Clock_Out AS check_out,
                     LOWER(s.Shift_Status) AS status,
-                    ROUND(TIMESTAMPDIFF(MINUTE, s.Clock_In, IFNULL(s.Clock_Out, NOW())) / 60, 1) AS hours_worked,
+                    CASE 
+                        WHEN s.Shift_Status = 'Completed' THEN ROUND(TIMESTAMPDIFF(MINUTE, s.Clock_In, s.Clock_Out) / 60, 1)
+                        WHEN s.Shift_Status = 'Active' THEN ROUND(TIMESTAMPDIFF(MINUTE, s.Clock_In, NOW()) / 60, 1)
+                        ELSE 0.0
+                    END AS hours_worked,
                     v.Registration_Number AS vehicle_plate
                 FROM Delivery_Shift s 
                 JOIN Vehicle v ON s.Vehicle_ID = v.Vehicle_ID 
@@ -88,6 +93,7 @@ const shiftController = {
                 SELECT 
                     s.Shift_ID AS shift_id,
                     s.Shift_ID AS attendance_id,
+                    s.Shift_Date AS shift_date,
                     CONCAT(e.First_Name, ' ', e.Last_Name) AS driver_name,
                     CONCAT(e.First_Name, ' ', e.Last_Name) AS employee_name,
                     v.Registration_Number AS vehicle_plate,
@@ -96,7 +102,11 @@ const shiftController = {
                     s.Clock_Out AS end_time,
                     s.Clock_Out AS check_out,
                     LOWER(s.Shift_Status) AS status,
-                    ROUND(TIMESTAMPDIFF(MINUTE, s.Clock_In, IFNULL(s.Clock_Out, NOW())) / 60, 1) AS hours_worked,
+                    CASE 
+                        WHEN s.Shift_Status = 'Completed' THEN ROUND(TIMESTAMPDIFF(MINUTE, s.Clock_In, s.Clock_Out) / 60, 1)
+                        WHEN s.Shift_Status = 'Active' THEN ROUND(TIMESTAMPDIFF(MINUTE, s.Clock_In, NOW()) / 60, 1)
+                        ELSE 0.0
+                    END AS hours_worked,
                     w.Name AS warehouse_name,
                     (SELECT COUNT(*) FROM Parcel p WHERE p.Shift_ID = s.Shift_ID) AS parcel_count
                 FROM Delivery_Shift s 
@@ -110,15 +120,13 @@ const shiftController = {
         } catch (err) { next(err); }
     },
     
-    // 7. Admin Update Shift Status (Connected Modal Endpoint)
+    // 7. Admin Update Shift Status
     updateStatus: async (req, res, next) => {
         const { id } = req.params;
         const { status, odometer_end, tank_end, fuel_consumed_can } = req.body;
         
         const connection = await db.getConnection();
-        
         try {
-
             const adminActorId = req.user?.employeeId || req.user?.employee_id || 1;
             await connection.query("SET @current_user_id = ?;", [adminActorId]);
 
@@ -126,11 +134,10 @@ const shiftController = {
                 const sql = `
                     UPDATE Delivery_Shift 
                     SET Clock_In = NOW(), 
-                        Shift_Status = 'Active' 
+                        Shift_Status = 'Active' \
                     WHERE Shift_ID = ?;
                 `;
                 await connection.query(sql, [id]);
-
             } else if (status === 'completed') {
                 const cleanOdometer = odometer_end && odometer_end !== '' ? parseFloat(odometer_end) : 0.00;
                 const cleanTank = tank_end && tank_end !== '' ? parseFloat(tank_end) : 0.00;
@@ -139,16 +146,15 @@ const shiftController = {
                 const sql = `
                     UPDATE Delivery_Shift 
                     SET Clock_Out = NOW(),
-                        Odometer_End = ?,
-                        Tank_End = ?,
-                        Fuel_Consumed_CAN = ?
+                        Odometer_End = ?,\
+                        Tank_End = ?,\
+                        Fuel_Consumed_CAN = ?\
                     WHERE Shift_ID = ?;
                 `;
                 await connection.query(sql, [cleanOdometer, cleanTank, cleanCanBus, id]);
             } else {
                 await connection.query("UPDATE Delivery_Shift SET Shift_Status = ? WHERE Shift_ID = ?;", [status, id]);
             }
-
             res.json({ success: true, message: `Shift status successfully updated to ${status}.` });
         } catch (err) { 
             next(err); 

@@ -100,14 +100,26 @@ const updateEmployee = async (req, res, next) => {
     const connection = await db.getConnection();
     
     try {
-        const adminActorId = req.user?.employeeId || req.user?.employee_id || 1;
+        const adminActorId = 
+            req.user?.Employee_ID || 
+            req.user?.employee_id || 
+            req.user?.employeeId || 
+            req.user?.id || 
+            req.user?.userId || 
+            req.userId || 
+            1;
+
         await connection.query("SET @current_user_id = ?;", [adminActorId]);
 
         const [roleRows] = await connection.query("SELECT Role_ID FROM Role WHERE LOWER(Name) = ?", [role.toLowerCase()]);
         const roleId = roleRows[0]?.Role_ID || 1;
 
         const cleanAarto = aarto_violations && aarto_violations !== '' ? parseInt(aarto_violations) : 0;
-        const cleanPrdp = prdp_expiry && prdp_expiry !== '' ? prdp_expiry : null;
+        
+        let cleanPrdp = null;
+        if (prdp_expiry && prdp_expiry !== '') {
+            cleanPrdp = prdp_expiry.includes('T') ? prdp_expiry.split('T')[0] : prdp_expiry.substring(0, 10);
+        }
 
         await connection.query(
             `UPDATE Employee 

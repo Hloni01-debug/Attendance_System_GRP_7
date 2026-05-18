@@ -12,12 +12,15 @@ const auditController = {
                     a.Log_ID,
                     a.Action_Type,
                     a.Table_Affected,
+                    a.Action_Timestamp,
                     a.Old_Value,
                     a.New_Value,
-                    a.Action_Timestamp,
-                    -- Returning raw ID for the frontend to use if needed
-                    a.Employee_ID, 
-                    -- Concatenating Name and ID for the "performed_by" display
+                    a.Employee_ID AS Actor_ID, 
+                    CASE 
+                        WHEN a.Old_Value LIKE 'TargetEmpID:%' THEN 
+                            SUBSTRING_INDEX(SUBSTRING_INDEX(a.Old_Value, ' | ', 1), 'TargetEmpID: ', -1)
+                        ELSE NULL
+                    END AS Affected_Employee_ID,
                     CASE 
                         WHEN e.Employee_ID IS NOT NULL THEN 
                             CONCAT(e.First_Name, ' ', e.Last_Name, ' (ID: ', e.Employee_ID, ')')
