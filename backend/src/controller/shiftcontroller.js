@@ -1,7 +1,37 @@
 const db = require('../config/db');
 
 const shiftController = {
-    // 1. Clock-In (Planned)
+    createShift: async (req, res, next) => {
+        const { employee_id, vehicle_id, warehouse_id, start_time, route_notes, status, odometer_start, tank_start } = req.body;
+        try {
+            const actorId = req.user?.employeeId || req.user?.employee_id || 1;
+            await db.query("SET @current_user_id = ?;", [actorId]);
+
+            const finalStatus = status === 'active' ? 'Active' : 'Planned';
+            const cleanOdometerStart = odometer_start !== undefined && odometer_start !== '' ? parseFloat(odometer_start) : 0.00;
+            const cleanTankStart = tank_start !== undefined && tank_start !== '' ? parseFloat(tank_start) : 0.00;
+
+            const sql = `
+                INSERT INTO Delivery_Shift 
+                (Employee_ID, Vehicle_ID, Start_Warehouse_ID, End_Warehouse_ID, Shift_Date, Clock_In, Odometer_Start, Odometer_End, Tank_Start, Tank_End, Fuel_Consumed_CAN, Shift_Status) 
+                VALUES (?, ?, ?, ?, DATE(?), ${status === 'active' ? 'NOW()' : 'NULL'}, ?, 0.00, ?, 0.00, 0.00, ?);
+            `;
+            
+            await db.query(sql, [
+                employee_id,
+                vehicle_id,
+                warehouse_id,
+                warehouse_id,
+                start_time,
+                cleanOdometerStart,
+                cleanTankStart,
+                finalStatus
+            ]);
+
+            res.status(201).json({ success: true, message: "Shift created successfully!" });
+        } catch (err) { next(err); }
+    },
+
     clockIn: async (req, res, next) => {
         const { shift_id, odometerStart, tankStart } = req.body;
         try {
@@ -15,7 +45,6 @@ const shiftController = {
         } catch (err) { next(err); }
     },
 
-    // 2. Clock-Out
     clockOut: async (req, res, next) => {
         const { shift_id, odometerEnd, tankEnd, fuelConsumedCan } = req.body;
         const id = req.params.id || shift_id;
@@ -30,7 +59,6 @@ const shiftController = {
         } catch (err) { next(err); }
     },
 
-    // 3. Spontaneous/unplanned shift
     startSpontaneousShift: async (req, res, next) => {
         const { vehicleId, startWarehouseId, odometerStart, tankStart } = req.body;
         try {
@@ -43,7 +71,6 @@ const shiftController = {
         } catch (err) { next(err); }
     },
 
-    // 4. Get My Shift
     getMyShift: async (req, res, next) => {
         try {
             const sql = `
@@ -70,7 +97,6 @@ const shiftController = {
         } catch (err) { next(err); }
     },
 
-    // 5. Admin Inspection
     updateInspectionStatus: async (req, res, next) => {
         const { id } = req.params;
         const { fuelStatus } = req.body; 
@@ -86,7 +112,6 @@ const shiftController = {
         } catch (err) { next(err); }
     },
 
-    // 6. Get All Shifts
     getAllShifts: async (req, res, next) => {
         try {
             const sql = `
@@ -120,7 +145,6 @@ const shiftController = {
         } catch (err) { next(err); }
     },
     
-    // 7. Admin Update Shift Status
     updateStatus: async (req, res, next) => {
         const { id } = req.params;
         const { status, odometer_end, tank_end, fuel_consumed_can } = req.body;
@@ -134,7 +158,7 @@ const shiftController = {
                 const sql = `
                     UPDATE Delivery_Shift 
                     SET Clock_In = NOW(), 
-                        Shift_Status = 'Active' \
+                        Shift_Status = 'Active' 
                     WHERE Shift_ID = ?;
                 `;
                 await connection.query(sql, [id]);
@@ -146,9 +170,9 @@ const shiftController = {
                 const sql = `
                     UPDATE Delivery_Shift 
                     SET Clock_Out = NOW(),
-                        Odometer_End = ?,\
-                        Tank_End = ?,\
-                        Fuel_Consumed_CAN = ?\
+                        Odometer_End = ?,
+                        Tank_End = ?,
+                        Fuel_Consumed_CAN = ?
                     WHERE Shift_ID = ?;
                 `;
                 await connection.query(sql, [cleanOdometer, cleanTank, cleanCanBus, id]);

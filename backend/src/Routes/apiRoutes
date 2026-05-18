@@ -11,6 +11,7 @@ const parcelController = require('../controller/parcelController');
 const dashboardController = require('../controller/dashboardController');
 const reportsController = require('../controller/reportsController');
 const auditController = require('../controller/auditController');
+const fuelController = require('../controller/fuelController');
 const payrollRouter = require('./payrollroutes');
 
 // 1. Core Auth Endpoints
@@ -23,6 +24,7 @@ router.get('/attendance/today', authMiddleware, shiftController.getMyShift);
 router.post('/attendance/check-in', authMiddleware, shiftController.clockIn);
 router.put('/attendance/check-out', authMiddleware, shiftController.clockOut);
 router.get('/delivery-shifts', authMiddleware, shiftController.getAllShifts);
+router.post('/delivery-shifts', authMiddleware, shiftController.createShift);
 router.put('/delivery-shifts/:id/inspection', authMiddleware, shiftController.updateInspectionStatus);
 router.put('/delivery-shifts/:id/status', authMiddleware, shiftController.updateStatus);
 
@@ -59,6 +61,9 @@ router.get('/audit', authMiddleware, auditController.getAllLogs);
 
 // 9. Reporting
 router.get('/reports/comparison', authMiddleware, reportsController.getComparisonData);
+
+// 10. Fuel Transactions
+router.post('/fuel-transactions', authMiddleware, fuelController.createFuelTransaction);
 
 router.get('/notifications', authMiddleware, (req, res) => res.json([]));
 router.use('/payroll', authMiddleware, payrollRouter);

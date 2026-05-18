@@ -381,7 +381,7 @@ export default function Payroll() {
 
               <div className="flex justify-end">
                 <button type="submit" className="btn-primary text-sm py-2 px-4">
-                  Calculate Metrics
+                  Generate payroll
                 </button>
               </div>
             </form>

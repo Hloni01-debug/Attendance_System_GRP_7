@@ -9,21 +9,24 @@ export default function Deliveries() {
   const { user } = useAuthStore();
   const [shifts, setShifts] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
+    employee_id: '',
     vehicle_id: '',
     warehouse_id: user?.warehouse_id || '',
     start_time: '',
     route_notes: '',
+    status: 'planned',
+    odometer_start: '',
+    tank_start: ''
   });
 
-  // --- SECTION 1: INSPECTION MODAL STATE ---
   const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
   const [selectedShiftId, setSelectedShiftId] = useState(null);
   const [fuelStatus, setFuelStatus] = useState('None');
 
-  // --- SECTION 2: MANUAL LOG ENTRY STATE ---
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [activeCompleteShiftId, setActiveCompleteShiftId] = useState(null);
   const [completeFormData, setCompleteFormData] = useState({
@@ -35,6 +38,7 @@ export default function Deliveries() {
   useEffect(() => {
     fetchShifts();
     fetchVehicles();
+    fetchEmployees();
   }, []);
 
   const fetchShifts = async () => {
@@ -57,6 +61,29 @@ export default function Deliveries() {
     }
   };
 
+  const fetchEmployees = async () => {
+    try {
+      const response = await api.get('/employees');
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+    }
+  };
+
+  const getTodayBounds = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const minStr = String(now.getMinutes()).padStart(2, '0');
+    return {
+      min: `${yyyy}-${mm}-${dd}T00:00`,
+      max: `${yyyy}-${mm}-${dd}T23:59`,
+      current: `${yyyy}-${mm}-${dd}T${hh}:${minStr}`
+    };
+  };
+
   const handleCreateShift = async (e) => {
     e.preventDefault();
     try {
@@ -64,13 +91,12 @@ export default function Deliveries() {
       toast.success('Delivery shift created successfully!');
       setShowModal(false);
       fetchShifts();
-      setFormData({ vehicle_id: '', warehouse_id: user?.warehouse_id || '', start_time: '', route_notes: '' });
+      setFormData({ employee_id: '', vehicle_id: '', warehouse_id: user?.warehouse_id || '', start_time: '', route_notes: '', status: 'planned', odometer_start: '', tank_start: '' });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create shift');
     }
   };
 
-  // Handles standard planned -> active transitions
   const handleUpdateStatus = async (shiftId, status) => {
     try {
       await api.put(`/delivery-shifts/${shiftId}/status`, { status });
@@ -81,7 +107,6 @@ export default function Deliveries() {
     }
   };
 
-  // Handles interactive form submissions for shift closures
   const handleFinalizeShiftCompletion = async (e) => {
     e.preventDefault();
     try {
@@ -119,9 +144,10 @@ export default function Deliveries() {
     return <span className={`badge ${badges[status] || 'badge-secondary'}`}>{status}</span>;
   };
 
+  const bounds = getTodayBounds();
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Delivery Shifts</h1>
         {user?.role?.includes('admin') && (
@@ -132,7 +158,6 @@ export default function Deliveries() {
         )}
       </div>
 
-      {/* Filters */}
       <div className="card">
         <div className="card-body">
           <div className="flex flex-wrap gap-4">
@@ -158,7 +183,6 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {/* Shifts Table */}
       <div className="card">
         <div className="card-body">
           <div className="table-container">
@@ -207,7 +231,6 @@ export default function Deliveries() {
                           </button>
                         )}
                         
-                        {/* --- inspect button --- */}
                         {user?.role?.includes('admin') && shift.status === 'completed' && (
                           <button
                             onClick={() => {
@@ -234,12 +257,32 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {/* Create Shift Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h2 className="text-xl font-bold mb-4">Create Delivery Shift</h2>
             <form onSubmit={handleCreateShift} className="space-y-4">
+              <div>
+                <label className="label">Assigned Driver</label>
+                <select
+                  value={formData.employee_id}
+                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                  className="input"
+                  required
+                >
+                  <option value="">Select Driver</option>
+                  {employees.map(emp => {
+                    const empId = emp.Employee_ID || emp.employee_id;
+                    const fName = emp.First_Name || emp.first_name;
+                    const lName = emp.Last_Name || emp.last_name;
+                    return (
+                      <option key={empId} value={empId}>
+                        {fName} {lName} (ID: {empId})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
               <div>
                 <label className="label">Vehicle</label>
                 <select
@@ -251,10 +294,53 @@ export default function Deliveries() {
                   <option value="">Select Vehicle</option>
                   {vehicles.map(v => (
                     <option key={v.vehicle_id} value={v.vehicle_id}>
-                      {v.plate_number} - {v.make} {v.model}
+                      {v.plate_number || v.Registration_Number} - {v.make} {v.model}
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="label">Initial Shift Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => {
+                    const nextStatus = e.target.value;
+                    setFormData({
+                      ...formData,
+                      status: nextStatus,
+                      start_time: nextStatus === 'active' ? bounds.current : formData.start_time
+                    });
+                  }}
+                  className="input"
+                  required
+                >
+                  <option value="planned">Planned (Requires Driver Clock-In)</option>
+                  <option value="active">Active (Dispatched Immediately)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Odometer Start (km)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  required
+                  value={formData.odometer_start}
+                  onChange={(e) => setFormData({ ...formData, odometer_start: e.target.value })}
+                  placeholder="e.g. 10420.00"
+                />
+              </div>
+              <div>
+                <label className="label">Tank Start (Litres)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  required
+                  value={formData.tank_start}
+                  onChange={(e) => setFormData({ ...formData, tank_start: e.target.value })}
+                  placeholder="e.g. 65.00"
+                />
               </div>
               <div>
                 <label className="label">Start Time</label>
@@ -264,6 +350,8 @@ export default function Deliveries() {
                   onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                   className="input"
                   required
+                  min={formData.status === 'active' ? bounds.min : undefined}
+                  max={formData.status === 'active' ? bounds.max : undefined}
                 />
               </div>
               <div>
@@ -285,11 +373,10 @@ export default function Deliveries() {
         </div>
       )}
 
-      {/* --- SECTION 3: INTERACTIVE MANUAL COMPLETION MODAL --- */}
       {isCompleteModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-1">Finalize Shift Logs (#{activeCompleteShiftId})</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-1">Finalize Shift Logs (# {activeCompleteShiftId})</h2>
             <p className="text-xs text-gray-500 mb-4">Input shift ending values.</p>
             
             <form onSubmit={handleFinalizeShiftCompletion} className="space-y-4">
@@ -341,13 +428,12 @@ export default function Deliveries() {
         </div>
       )}
 
-      {/* --- fuel and fleet compliance --- */}
       {isInspectModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
             <div className="border-b pb-2">
               <h2 className="text-xl font-bold text-gray-800">
-                Shift Inspection Audit (#{selectedShiftId})
+                Shift Inspection Audit (# {selectedShiftId})
               </h2>
               <p className="text-xs text-gray-500 mt-1">
                 missing fuel review audit

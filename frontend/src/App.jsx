@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';  // ← ADDED useEffect here
+import React, { useEffect } from 'react';  
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import Login from './pages/Login';
@@ -14,12 +14,12 @@ import Reports from './pages/Reports';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuditLogs from './pages/AuditLogs';
+import FuelTransactionsPage from './pages/fuelTransactionsPage';
 
 function App() {
   const { token, user } = useAuthStore();
 
   useEffect(() => {
-    // Your useEffect logic here
     console.log('App initialized');
   }, []);
 
@@ -40,6 +40,7 @@ function App() {
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/warehouses" element={<Warehouses />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/fueltransactionspage" element={<FuelTransactionsPage />} />
           </Route>
         </Route>
         
