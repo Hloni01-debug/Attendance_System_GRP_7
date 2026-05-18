@@ -18,6 +18,8 @@ export default function Employees() {
     warehouse_id: '',
     hourly_rate: '',
     password: '',
+    aarto_violations: '0',
+    prdp_expiry: '',
   });
 
   useEffect(() => {
@@ -65,6 +67,8 @@ export default function Employees() {
         warehouse_id: '',
         hourly_rate: '',
         password: '',
+        aarto_violations: '0',
+        prdp_expiry: '',
       });
       fetchEmployees();
     } catch (error) {
@@ -82,6 +86,8 @@ export default function Employees() {
       warehouse_id: employee.warehouse_id || '',
       hourly_rate: employee.hourly_rate,
       password: '',
+      aarto_violations: employee.aarto_violations !== undefined && employee.aarto_violations !== null ? employee.aarto_violations.toString() : '0',
+      prdp_expiry: employee.prdp_expiry ? employee.prdp_expiry.split('T')[0] : '',
     });
     setShowModal(true);
   };
@@ -160,6 +166,17 @@ export default function Employees() {
                         <div>
                           <p className="font-medium">{employee.first_name} {employee.last_name}</p>
                           <p className="text-xs text-gray-500">ID: {employee.employee_id}</p>
+                          {employee.role === 'driver' && (
+                            <div className="flex gap-2 mt-1 text-[10px] font-bold tracking-wider uppercase">
+                              <span className={employee.prdp_expiry && new Date(employee.prdp_expiry) > new Date() ? "text-green-600 bg-green-50 px-1 rounded" : "text-red-600 bg-red-50 px-1 rounded"}>
+                                PrDP: {employee.prdp_expiry ? employee.prdp_expiry.split('T')[0] : 'MISSING'}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className={parseInt(employee.aarto_violations) < 12 ? "text-slate-600 bg-slate-100 px-1 rounded" : "text-amber-600 bg-amber-50 px-1 rounded"}>
+                                AARTO: {employee.aarto_violations || 0} pts
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -285,6 +302,31 @@ export default function Employees() {
                   required
                 />
               </div>
+              {formData.role === 'driver' && (
+                <div className="grid grid-cols-2 gap-4 border-t border-dashed pt-4 mt-2">
+                  <div>
+                    <label className="label">PrDP Expiry</label>
+                    <input
+                      type="date"
+                      value={formData.prdp_expiry}
+                      onChange={(e) => setFormData({ ...formData, prdp_expiry: e.target.value })}
+                      className="input"
+                      required={!editingEmployee}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">AARTO Violations</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="15"
+                      value={formData.aarto_violations}
+                      onChange={(e) => setFormData({ ...formData, aarto_violations: e.target.value })}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="btn-primary flex-1">
                   {editingEmployee ? 'Update' : 'Create'}

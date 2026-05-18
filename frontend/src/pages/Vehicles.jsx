@@ -17,6 +17,8 @@ export default function Vehicles() {
     capacity_kg: '',
     status: 'available',
     warehouse_id: '',
+    registration_expiry: '',
+    cof_expiry: '',
   });
 
   useEffect(() => {
@@ -64,6 +66,8 @@ export default function Vehicles() {
         capacity_kg: '',
         status: 'available',
         warehouse_id: '',
+        registration_expiry: '',
+        cof_expiry: '',
       });
       fetchVehicles();
     } catch (error) {
@@ -81,6 +85,8 @@ export default function Vehicles() {
       capacity_kg: vehicle.capacity_kg || '',
       status: vehicle.status,
       warehouse_id: vehicle.warehouse_id || '',
+      registration_expiry: vehicle.registration_expiry ? vehicle.registration_expiry.split('T')[0] : '',
+      cof_expiry: vehicle.cof_expiry ? vehicle.cof_expiry.split('T')[0] : '',
     });
     setShowModal(true);
   };
@@ -181,12 +187,32 @@ export default function Vehicles() {
               <tbody>
                 {vehicles.map((vehicle) => (
                   <tr key={vehicle.vehicle_id}>
-                    <td className="font-mono font-medium">{vehicle.plate_number}</td>
+                    <td>
+                      <div className="font-mono font-medium text-gray-900">{vehicle.plate_number}</div>
+                      <div className="flex gap-2 mt-1 text-[10px] font-bold tracking-wider uppercase">
+                        <span className={vehicle.license_status === 'VALID' ? "text-green-600 bg-green-50 px-1 rounded" : "text-red-600 bg-red-50 px-1 rounded"}>
+                          Reg: {vehicle.license_status || 'VALID'}
+                        </span>
+                        <span className="text-gray-300">|</span>
+                        <span className={vehicle.roadworthy_status === 'VALID' ? "text-green-600 bg-green-50 px-1 rounded" : "text-red-600 bg-red-50 px-1 rounded"}>
+                          COF: {vehicle.roadworthy_status || 'VALID'}
+                        </span>
+                      </div>
+                    </td>
                     <td>{vehicle.make} {vehicle.model}</td>
                     <td>{vehicle.year}</td>
                     <td>{vehicle.capacity_kg?.toLocaleString() || '-'}</td>
                     <td>{vehicle.warehouse_name || '-'}</td>
-                    <td>{getStatusBadge(vehicle.status)}</td>
+                    <td>
+                      <div>
+                        {getStatusBadge(vehicle.status)}
+                        {vehicle.vehicle_readiness && vehicle.vehicle_readiness !== 'FIT FOR DISPATCH' && (
+                          <div className="text-[10px] text-red-500 font-semibold mt-1 uppercase tracking-wide">
+                            {vehicle.vehicle_readiness}
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td>
                       <div className="flex gap-2">
                         <button onClick={() => handleEdit(vehicle)} className="text-blue-600 hover:text-blue-800">
@@ -264,6 +290,31 @@ export default function Vehicles() {
                   />
                 </div>
               </div>
+
+              
+              <div className="grid grid-cols-2 gap-4 border-t border-dashed pt-4 mt-2">
+                <div>
+                  <label className="label">Registration Expiry</label>
+                  <input
+                    type="date"
+                    value={formData.registration_expiry}
+                    onChange={(e) => setFormData({ ...formData, registration_expiry: e.target.value })}
+                    className="input"
+                    required={!editingVehicle}
+                  />
+                </div>
+                <div>
+                  <label className="label">COF Expiry</label>
+                  <input
+                    type="date"
+                    value={formData.cof_expiry}
+                    onChange={(e) => setFormData({ ...formData, cof_expiry: e.target.value })}
+                    className="input"
+                    required={!editingVehicle}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="label">Status</label>
                 <select
